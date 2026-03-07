@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>中心場地租用系統 v10 (強化刪除穩定性)</title>
+    <!-- SheetJS 引入連結 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            /* 配色定義 */
+            --pink: #fce4ec; --green: #e8f5e9; --blue: #e3f2fd;
+            --orange: #fff3e0; --purple: #f3e5f5; --yellow: #fffde7;
+            --brown: #efebe9; --grey: #f5f5f5;
+            --border: #ddd; --header: #f8f9fa;
+        }
+        body { font-family: "Microsoft JhengHei", "PingFang TC", sans-serif; display: flex; margin: 0; height: 100vh; overflow: hidden; background: #f4f6f8; }
+        
+        /* 左側操作區 */
+        #sidebar { width: 340px; padding: 20px; background: #ffffff; border-right: 2px solid #ddd; display: flex; flex-direction: column; gap: 12px; box-shadow: 2px 0 10px rgba(0,0,0,0.05); overflow-y: auto; }
+        h2 { margin: 0 0 10px 0; color: #2c3e50; border-left: 5px solid #007bff; padding-left: 10px; font-size: 20px; }
+        .input-group { display: flex; flex-direction: column; gap: 4px; }
+        label { font-weight: bold; font-size: 13px; color: #444; }
+        input, select, button { padding: 8px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+        input:focus, select:focus { border-color: #007bff; outline: none; }
+        
+        .btn-add { background: #28a745; color: white; cursor: pointer; font-weight: bold; border: none; transition: 0.2s; margin-top: 5px; }
+        .btn-view-toggle { background: #007bff; color: white; cursor: pointer; font-weight: bold; border: none; margin-top: 5px; }
+        .btn-export { background: #17a2b8; color: white; cursor: pointer; font-weight: bold; border: none; margin-top: 5px; }
+        button:hover { opacity: 0.85; transform: translateY(-1px); }
+
+        /* 預約清單 */
+        #bookingList { margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; }
+        .list-item { font-size: 12px; background: #fdfdfd; padding: 6px; margin-bottom: 4px; border-radius: 4px; display: flex; justify-content: space-between; border: 1px solid #eee; align-items: center; }
+        .del-btn { background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+
+        /* 右側看板區 */
+        #main { flex-grow: 1; display: flex; flex-direction: column; background: white; position: relative; }
+        header { padding: 10px 20px; background: #fff; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        #dateDisplay { font-size: 18px; font-weight: bold; color: #333; }
+        
+        /* 單日視圖網格 */
+        #grid-container { flex-grow: 1; overflow: auto; display: grid; grid-template-columns: 70px repeat(7, 1fr); grid-template-rows: 40px repeat(28, 30px); }
+        .grid-header { background: #f1f3f5; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid #ccc; border-right: 1px solid #eee; text-align: center; line-height: 40px; font-weight: bold; color: #555; }
+        .time-label { background: #f1f3f5; position: sticky; left: 0; z-index: 5; text-align: center; line-height: 30px; border-bottom: 1px solid #eee; border-right: 2px solid #bbb; font-size: 11px; color: #888; }
+        .cell { border-bottom: 1px solid #f2f2f2; border-right: 1px solid #f2f2f2; position: relative; }
+
+        /* 月度視圖日曆 */
+        #month-container { display: none; flex-grow: 1; overflow-y: auto; padding: 15px; background: #f8f9fa; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .calendar-day-header { text-align: center; font-weight: bold; padding: 8px; background: #34495e; color: white; border-radius: 3px; font-size: 13px; }
+        .calendar-day { background: white; border: 1px solid #e0e0e0; min-height: 140px; border-radius: 4px; padding: 5px; cursor: default; display: flex; flex-direction: column; overflow-y: auto; }
+        .calendar-day.other-month { background: #f1f1f1; opacity: 0.5; pointer-events: none; }
+        .calendar-day.today { border: 2px solid #007bff; background: #f0f7ff; }
+        .day-number { font-weight: bold; margin-bottom: 5px; font-size: 14px; border-bottom: 1px solid #eee; padding-bottom: 2px; cursor: pointer; color: #007bff; }
+        .day-number:hover { text-decoration: underline; }
+        
+        /* 月曆中的活動條 */
+        .day-event-detail { position: relative; font-size: 10px; padding: 3px 22px 3px 5px; margin-bottom: 3px; border-radius: 3px; line-height: 1.3; border-left: 3px solid rgba(0,0,0,0.2); overflow: hidden; }
+        .day-event-detail .del-mini { position: absolute; top: 50%; transform: translateY(-50%); right: 4px; cursor: pointer; color: #999; font-weight: bold; font-size: 14px; background: rgba(255,255,255,0.5); width: 16px; height: 16px; line-height: 14px; text-align: center; border-radius: 50%; }
+        .day-event-detail .del-mini:hover { color: white; background: #dc3545; }
+
+        /* 單日視圖活動區塊 */
+        .event-block { position: absolute; left: 3px; right: 3px; border-radius: 3px; padding: 4px; font-size: 11px; z-index: 2; box-shadow: 1px 1px 3px rgba(0,0,0,0.15); pointer-events: auto; line-height: 1.2; overflow: hidden; border: 0.5px solid rgba(0,0,0,0.1); }
+        .event-block .del-x { position: absolute; top: 2px; right: 5px; cursor: pointer; font-weight: bold; color: #333; opacity: 0.6; font-size: 16px; background: rgba(255,255,255,0.3); border-radius: 50%; width: 20px; height: 20px; line-height: 18px; text-align: center; }
+        .event-block .del-x:hover { opacity: 1; color: white; background: #dc3545; }
+        
+        /* 類別配色 */
+        .cat-持修 { background: var(--pink); border-left-color: #d81b60; }
+        .cat-兒童 { background: var(--green); border-left-color: #43a047; }
+        .cat-成人 { background: var(--blue); border-left-color: #1e88e5; }
+        .cat-家庭部 { background: var(--orange); border-left-color: #fb8c00; }
+        .cat-會員部 { background: var(--purple); border-left-color: #8e24aa; }
+        .cat-青年部 { background: var(--yellow); border-left-color: #fdd835; }
+        .cat-職介部 { background: var(--brown); border-left-color: #6d4c41; }
+        .cat-借場 { background: var(--grey); border-left-color: #757575; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h2>場地租用系統</h2>
+    
+    <div class="input-group">
+        <label>活動/班級名稱</label>
+        <input type="text" id="eventName" placeholder="例如：社區油畫班">
+    </div>
+
+    <div class="input-group">
+        <label>選擇日期</label>
+        <input type="date" id="eventDate" onchange="renderBookings()">
+    </div>
+
+    <div class="input-group">
+        <label>批量錄入 (連開週數)</label>
+        <select id="repeatCount">
+            <option value="1">僅一次</option>
+            <option value="4">連開 4 週</option>
+            <option value="8">連開 8 週</option>
+            <option value="12">連開 12 週</option>
+        </select>
+    </div>
+
+    <div class="input-group">
+        <label>租用場地</label>
+        <select id="roomSelect">
+            <option>活動一室</option><option>活動二室</option><option>活動三室</option>
+            <option>多功能室</option><option>青年室</option><option>大廳</option><option>圖書館</option>
+        </select>
+    </div>
+
+    <div class="input-group">
+        <label>時間範圍</label>
+        <div style="display:flex; gap:5px; align-items:center;">
+            <input type="time" id="startTime" value="10:00"> <span>~</span> <input type="time" id="endTime" value="12:00">
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>部門/類別</label>
+        <select id="catSelect">
+            <option value="家庭部">家庭部 (橙)</option>
+            <option value="會員部">會員部 (紫)</option>
+            <option value="青年部">青年部 (黃)</option>
+            <option value="職介部">職介部 (棕)</option>
+            <option value="借場">借場 (灰)</option>
+            <option value="持修">持修班 (粉紅)</option>
+            <option value="兒童">兒童班 (綠)</option>
+            <option value="成人">成人班 (藍)</option>
+        </select>
+    </div>
+
+    <button class="btn-add" onclick="addBooking()">確認新增預約</button>
+    
+    <button id="toggleBtn" class="btn-view-toggle" onclick="toggleView()">顯示月度詳細看板</button>
+
+    <button class="btn-export" onclick="exportToExcelCalendar()">匯出日曆格式 EXCEL</button>
+
+    <div id="bookingList">
+        <label>當前日期預約：</label>
+        <div id="listContent"></div>
+    </div>
+</div>
+
+<div id="main">
+    <header>
+        <div id="dateDisplay">載入中...</div>
+        <div id="viewStatus" style="color:#666; font-size: 12px; background: #eee; padding: 4px 12px; border-radius: 20px;">
+            目前視圖：單日詳細
+        </div>
+    </header>
+    
+    <div id="grid-container">
+        <div class="grid-header">時間</div>
+        <div class="grid-header">活動一室</div><div class="grid-header">活動二室</div><div class="grid-header">活動三室</div>
+        <div class="grid-header">多功能室</div><div class="grid-header">青年室</div><div class="grid-header">大廳</div><div class="grid-header">圖書館</div>
+    </div>
+
+    <div id="month-container">
+        <div class="calendar-grid" id="calendarGrid"></div>
+    </div>
+</div>
+
+<script>
+    const rooms = ["活動一室", "活動二室", "活動三室", "多功能室", "青年室", "大廳", "圖書館"];
+    let bookings = JSON.parse(localStorage.getItem('centerBookingsV4')) || []; 
+    let currentView = 'day';
+
+    window.onload = () => {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('eventDate').value = today;
+        initGrid();
+        renderBookings();
+    };
+
+    function initGrid() {
+        const container = document.getElementById('grid-container');
+        for (let h = 9; h <= 22; h++) {
+            for (let m of ['00', '30']) {
+                const timeStr = `${h.toString().padStart(2, '0')}:${m}`;
+                const label = document.createElement('div'); label.className = 'time-label'; label.innerText = timeStr;
+                container.appendChild(label);
+                for (let r = 0; r < 7; r++) {
+                    const cell = document.createElement('div'); cell.className = 'cell'; cell.id = `cell-${timeStr}-${rooms[r]}`;
+                    container.appendChild(cell);
+                }
+            }
+        }
+    }
+
+    function toggleView() {
+        const grid = document.getElementById('grid-container');
+        const month = document.getElementById('month-container');
+        const btn = document.getElementById('toggleBtn');
+        const status = document.getElementById('viewStatus');
+
+        if (currentView === 'day') {
+            currentView = 'month';
+            grid.style.display = 'none';
+            month.style.display = 'block';
+            btn.innerText = '切換回單日時段視圖';
+            status.innerText = '目前視圖：月度詳細看板';
+            renderMonthView();
+        } else {
+            currentView = 'day';
+            grid.style.display = 'grid';
+            month.style.display = 'none';
+            btn.innerText = '顯示月度詳細看板';
+            status.innerText = '目前視圖：單日詳細';
+            renderBookings();
+        }
+    }
+
+    function addBooking() {
+        const name = document.getElementById('eventName').value;
+        const startDate = document.getElementById('eventDate').value;
+        const room = document.getElementById('roomSelect').value;
+        const start = document.getElementById('startTime').value;
+        const end = document.getElementById('endTime').value;
+        const cat = document.getElementById('catSelect').value;
+        const repeat = parseInt(document.getElementById('repeatCount').value);
+
+        if(!name || !startDate) return alert("請輸入活動名稱與選擇日期");
+        if(start >= end) return alert("時間錯誤：結束時間必須晚於開始時間");
+
+        for(let i = 0; i < repeat; i++) {
+            const currentObj = new Date(startDate);
+            currentObj.setDate(currentObj.getDate() + (i * 7));
+            const dateStr = currentObj.toISOString().split('T')[0];
+
+            // 修正 ID 生成：確保批量錄入時 ID 絕對唯一
+            const uniqueId = "ID-" + Date.now() + "-" + i + "-" + Math.random().toString(36).substr(2, 9);
+
+            bookings.push({
+                id: uniqueId,
+                name: name + (repeat > 1 ? ` (${i+1}/${repeat})` : ""),
+                date: dateStr,
+                room, start, end, cat
+            });
+        }
+
+        saveAndRender();
+        document.getElementById('eventName').value = "";
+    }
+
+    function deleteBooking(id) {
+        if(!id) return;
+        if(confirm("確定要取消這項預約嗎？")) {
+            // 強化過濾邏輯：移除匹配 ID 或無效資料
+            bookings = bookings.filter(b => b.id && String(b.id) !== String(id));
+            saveAndRender();
+        }
+    }
+
+    function saveAndRender() {
+        localStorage.setItem('centerBookingsV4', JSON.stringify(bookings));
+        if (currentView === 'day') renderBookings();
+        else renderMonthView();
+    }
+
+    function renderBookings() {
+        document.querySelectorAll('.event-block').forEach(el => el.remove());
+        const listContent = document.getElementById('listContent');
+        listContent.innerHTML = "";
+        const viewDate = document.getElementById('eventDate').value;
+        document.getElementById('dateDisplay').innerText = viewDate + " 場地租用詳情";
+
+        bookings.forEach(b => {
+            if (b.date === viewDate) {
+                const startH = parseInt(b.start.split(':')[0]); const startM = parseInt(b.start.split(':')[1]);
+                const endH = parseInt(b.end.split(':')[0]); const endM = parseInt(b.end.split(':')[1]);
+                const topOffset = ((startH - 9) * 2 + (startM >= 30 ? 1 : 0)) * 30;
+                const height = (((endH * 60 + endM) - (startH * 60 + startM)) / 30) * 30;
+
+                const roomIndex = rooms.indexOf(b.room);
+                const targetCell = document.getElementById(`cell-09:00-${rooms[roomIndex]}`);
+                const block = document.createElement('div');
+                block.className = `event-block cat-${b.cat}`;
+                block.style.top = topOffset + "px"; block.style.height = (height - 4) + "px";
+                block.innerHTML = `<span class="del-x" title="刪除" onclick="event.stopPropagation(); deleteBooking('${b.id}')">×</span>
+                                   <div style="font-weight:bold">${b.name}</div>
+                                   <div style="font-size:9px">${b.start}-${b.end}</div>`;
+                targetCell.appendChild(block);
+
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                item.innerHTML = `<div><b style="color:#007bff">[${b.room}]</b> ${b.name}</div>
+                                  <button class="del-btn" onclick="deleteBooking('${b.id}')">取消</button>`;
+                listContent.appendChild(item);
+            }
+        });
+    }
+
+    function renderMonthView() {
+        const grid = document.getElementById('calendarGrid');
+        grid.innerHTML = '';
+        const selectedDate = new Date(document.getElementById('eventDate').value);
+        const year = selectedDate.getFullYear();
+        const month = selectedDate.getMonth();
+        document.getElementById('dateDisplay').innerText = `${year}年 ${month + 1}月 場地看板`;
+
+        ['日', '一', '二', '三', '四', '五', '六'].forEach(d => {
+            const h = document.createElement('div'); h.className = 'calendar-day-header'; h.innerText = d; grid.appendChild(h);
+        });
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        for (let i = 0; i < firstDay; i++) {
+            const empty = document.createElement('div'); empty.className = 'calendar-day other-month'; grid.appendChild(empty);
+        }
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dayBox = document.createElement('div');
+            dayBox.className = 'calendar-day';
+            const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+            if (dateStr === new Date().toISOString().split('T')[0]) dayBox.classList.add('today');
+
+            dayBox.innerHTML = `<div class="day-number" onclick="document.getElementById('eventDate').value='${dateStr}'; toggleView();" title="點擊切換至當日詳情">${d}</div>`;
+            
+            const dayEvents = bookings.filter(b => b.date === dateStr).sort((a,b) => a.start.localeCompare(b.start));
+            
+            dayEvents.forEach(e => {
+                const brief = document.createElement('div');
+                brief.className = `day-event-detail cat-${e.cat}`;
+                // 月度視圖刪除按鈕增加 event.stopPropagation() 防止觸發切換
+                brief.innerHTML = `
+                    <span class="del-mini" title="刪除預約" onclick="event.stopPropagation(); deleteBooking('${e.id}')">×</span>
+                    <b>[${e.room.replace('活動','')}]</b> ${e.start}<br>${e.name}
+                `;
+                dayBox.appendChild(brief);
+            });
+
+            grid.appendChild(dayBox);
+        }
+    }
+
+    function exportToExcelCalendar() {
+        if (typeof XLSX === 'undefined') return alert("組件加載中，請稍候...");
+        const selectedDate = document.getElementById('eventDate').value;
+        const year = parseInt(selectedDate.substring(0, 4));
+        const month = parseInt(selectedDate.substring(5, 7)) - 1;
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const firstDay = new Date(year, month, 1).getDay();
+
+        let rows = [
+            [`${year}年 ${month + 1}月 中心場地租用日曆`],
+            ["週日", "週一", "週二", "週三", "週四", "週五", "週六"]
+        ];
+
+        let currentRow = Array(7).fill("");
+        let dayCount = 1;
+
+        for (let i = firstDay; i < 7 && dayCount <= daysInMonth; i++) {
+            const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${dayCount.toString().padStart(2, '0')}`;
+            const dayEvents = bookings.filter(b => b.date === dateStr).sort((a,b) => a.start.localeCompare(b.start));
+            let cellContent = `【${dayCount}日】\n`;
+            dayEvents.forEach(e => { cellContent += `${e.start} [${e.room}] ${e.name}\n`; });
+            currentRow[i] = cellContent;
+            dayCount++;
+        }
+        rows.push(currentRow);
+
+        while (dayCount <= daysInMonth) {
+            currentRow = Array(7).fill("");
+            for (let i = 0; i < 7 && dayCount <= daysInMonth; i++) {
+                const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${dayCount.toString().padStart(2, '0')}`;
+                const dayEvents = bookings.filter(b => b.date === dateStr).sort((a,b) => a.start.localeCompare(b.start));
+                let cellContent = `【${dayCount}日】\n`;
+                dayEvents.forEach(e => { cellContent += `${e.start} [${e.room}] ${e.name}\n`; });
+                currentRow[i] = cellContent;
+                dayCount++;
+            }
+            rows.push(currentRow);
+        }
+
+        const worksheet = XLSX.utils.aoa_to_sheet(rows);
+        worksheet['!cols'] = Array(7).fill({ wch: 30 });
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "日曆表");
+        XLSX.writeFile(workbook, `場地租用日曆_${year}_${month+1}.xlsx`);
+    }
+</script>
+
+</body>
+</html>
