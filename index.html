@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>中心場地租用系統 v14 (2026 公眾假期版)</title>
+    <title>中心場地租用系統 v15 (新增結束日期功能)</title>
     <!-- SheetJS 引入連結 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -116,6 +116,11 @@
     </div>
 
     <div class="input-group">
+        <label>結束日期 (批量預約時可選)</label>
+        <input type="date" id="eventEndDate">
+    </div>
+
+    <div class="input-group">
         <label>批量錄入 (連開週數)</label>
         <select id="repeatCount">
             <option value="1">僅一次</option>
@@ -123,6 +128,7 @@
             <option value="8">連開 8 週</option>
             <option value="12">連開 12 週</option>
         </select>
+        <p style="font-size: 10px; color: #888; margin: 0;">註：若填寫結束日期，則優先以結束日期為準。</p>
     </div>
 
     <div class="input-group">
@@ -342,39 +348,71 @@
         checkboxes.forEach(cb => cb.checked = !allChecked);
     }
 
+    // 核心預約邏輯更新：支援結束日期
     function addBooking() {
         const name = document.getElementById('eventName').value;
         const startDateInput = document.getElementById('eventDate').value;
+        const endDateInput = document.getElementById('eventEndDate').value;
         const room = document.getElementById('roomSelect').value;
         const start = document.getElementById('startTime').value;
         const end = document.getElementById('endTime').value;
         const cat = document.getElementById('catSelect').value;
-        const repeatWeeks = parseInt(document.getElementById('repeatCount').value);
+        let repeatWeeks = parseInt(document.getElementById('repeatCount').value);
 
         if(!name || !startDateInput) return alert("請輸入活動名稱與選擇日期");
         if(start >= end) return alert("時間錯誤：結束時間必須晚於開始時間");
 
-        const selectedWeeks = Array.from(document.querySelectorAll('#weekSelector input:checked')).map(cb => parseInt(cb.value));
         const startBaseDate = new Date(startDateInput);
+        let endLimitDate;
+
+        // 如果填寫了結束日期，則計算結束日期。否則按連開週數計算。
+        if (endDateInput) {
+            endLimitDate = new Date(endDateInput);
+            if (endLimitDate < startBaseDate) return alert("結束日期不能早於開始日期");
+            // 設定為無限，由日期判斷結束
+            repeatWeeks = 999; 
+        } else {
+            // 原有邏輯：計算 X 週後的日期作為界限
+            endLimitDate = new Date(startBaseDate);
+            endLimitDate.setDate(startBaseDate.getDate() + (repeatWeeks - 1) * 7);
+        }
+
+        const selectedWeeks = Array.from(document.querySelectorAll('#weekSelector input:checked')).map(cb => parseInt(cb.value));
 
         for (let i = 0; i < repeatWeeks; i++) {
             if (selectedWeeks.length > 0) {
+                let currentWeekHasBooking = false;
                 selectedWeeks.forEach(weekDay => {
                     const targetDate = new Date(startBaseDate);
-                    const currentWeekStart = startBaseDate.getDate() - startBaseDate.getDay() + (i * 7);
-                    targetDate.setDate(currentWeekStart + weekDay);
-                    if (targetDate >= startBaseDate || i > 0) {
+                    // 計算該週的指定星期幾
+                    const offset = weekDay - startBaseDate.getDay();
+                    targetDate.setDate(startBaseDate.getDate() + offset + (i * 7));
+
+                    // 檢查是否在範圍內：不早於開始日期且不晚於結束界限
+                    if (targetDate >= startBaseDate && targetDate <= endLimitDate) {
                         pushBooking(name, targetDate, room, start, end, cat);
+                        currentWeekHasBooking = true;
                     }
                 });
+                // 如果這一整週都沒有符合日期的項目，且使用了結束日期模式，則停止循環
+                if (endDateInput && !currentWeekHasBooking && new Date(startBaseDate.getTime() + (i * 7 * 86400000)) > endLimitDate) break;
             } else {
+                // 原有單週重複邏輯
                 const targetDate = new Date(startBaseDate);
                 targetDate.setDate(targetDate.getDate() + (i * 7));
-                pushBooking(name, targetDate, room, start, end, cat);
+                if (targetDate <= endLimitDate) {
+                    pushBooking(name, targetDate, room, start, end, cat);
+                } else {
+                    break;
+                }
             }
+            // 防止無限循環安全機制
+            if (i > 104) break; 
         }
+        
         saveAndRender();
         document.getElementById('eventName').value = "";
+        document.getElementById('eventEndDate').value = "";
     }
 
     function pushBooking(name, dateObj, room, start, end, cat) {
