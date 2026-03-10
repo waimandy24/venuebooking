@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>中心場地租用系統 v20 (權限修復雲端版)</title>
+    <title>中心場地租用系統 v31 (修正驗證與路徑)</title>
     <!-- SheetJS 引入 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -25,22 +25,23 @@
         
         .week-selector { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 5px; }
         .week-item { display: flex; align-items: center; gap: 3px; font-size: 12px; cursor: pointer; }
-        .week-item input { width: auto; padding: 0; }
-
-        .btn-add { background: #28a745; color: white; cursor: pointer; font-weight: bold; border: none; transition: 0.2s; margin-top: 5px; }
+        
+        .btn-add { background: #28a745; color: white; cursor: pointer; font-weight: bold; border: none; margin-top: 5px; }
         .btn-view-toggle { background: #007bff; color: white; cursor: pointer; font-weight: bold; border: none; margin-top: 5px; }
         .btn-manage-toggle { background: #6c757d; color: white; cursor: pointer; font-weight: bold; border: none; margin-top: 5px; }
         .btn-export { background: #17a2b8; color: white; cursor: pointer; font-weight: bold; border: none; margin-top: 5px; }
         
+        /* 右側主區 */
         #main { flex-grow: 1; display: flex; flex-direction: column; background: white; position: relative; }
         header { padding: 10px 20px; background: #fff; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .header-title-area { display: flex; align-items: center; gap: 15px; }
         #dateDisplay { font-size: 18px; font-weight: bold; color: #333; }
-        .nav-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 16px; display: none; }
+        .nav-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 16px; display: none; }
 
+        /* 網格系統 */
         #grid-container { flex-grow: 1; overflow: auto; display: grid; grid-template-columns: 70px repeat(7, 1fr); grid-template-rows: 40px repeat(28, 30px); }
-        .grid-header { background: #f1f3f5; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid #ccc; border-right: 1px solid #eee; text-align: center; line-height: 40px; font-weight: bold; color: #555; }
-        .time-label { background: #f1f3f5; position: sticky; left: 0; z-index: 5; text-align: center; line-height: 30px; border-bottom: 1px solid #eee; border-right: 2px solid #bbb; font-size: 11px; color: #888; }
+        .grid-header { background: #f1f3f5; position: sticky; top: 0; z-index: 10; border: 1px solid #ddd; text-align: center; line-height: 40px; font-weight: bold; }
+        .time-label { background: #f1f3f5; position: sticky; left: 0; z-index: 5; text-align: center; line-height: 30px; border-bottom: 1px solid #eee; border-right: 2px solid #bbb; font-size: 11px; }
         .cell { border-bottom: 1px solid #f2f2f2; border-right: 1px solid #f2f2f2; position: relative; }
 
         #month-container { display: none; flex-grow: 1; overflow-y: auto; padding: 15px; background: #f8f9fa; }
@@ -51,15 +52,18 @@
         .day-number-container { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 2px; margin-bottom: 5px; }
         .day-number { font-weight: bold; font-size: 14px; cursor: pointer; color: #007bff; }
         .holiday-label { font-size: 10px; color: var(--holiday-red); font-weight: bold; }
-        
+
         .event-block { position: absolute; left: 3px; right: 3px; border-radius: 3px; padding: 4px; font-size: 11px; z-index: 2; box-shadow: 1px 1px 3px rgba(0,0,0,0.15); line-height: 1.2; overflow: hidden; border: 0.5px solid rgba(0,0,0,0.1); }
-        .event-block .del-x { position: absolute; top: 1px; right: 4px; cursor: pointer; font-weight: bold; font-size: 16px; color: #333; }
+        .event-block .del-x { position: absolute; top: 2px; right: 4px; cursor: pointer; font-weight: bold; font-size: 16px; color: #333; }
+        .day-event-detail { position: relative; font-size: 10px; padding: 3px 22px 3px 5px; margin-bottom: 3px; border-radius: 3px; border-left: 3px solid rgba(0,0,0,0.2); overflow: hidden; }
+        .day-event-detail .del-mini { position: absolute; top: 50%; transform: translateY(-50%); right: 4px; cursor: pointer; color: #999; font-weight: bold; font-size: 14px; }
 
         #manage-container { display: none; flex-grow: 1; overflow-y: auto; padding: 20px; background: white; }
         .manage-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .manage-table { width: 100%; border-collapse: collapse; }
         .manage-table th, .manage-table td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 13px; }
 
+        /* 部門配色 */
         .cat-家庭部 { background: var(--orange); border-left-color: #fb8c00; }
         .cat-會員部 { background: var(--purple); border-left-color: #8e24aa; }
         .cat-青年部 { background: var(--yellow); border-left-color: #fdd835; }
@@ -74,15 +78,15 @@
         .modal-content { background: white; padding: 25px; border-radius: 10px; max-width: 450px; width: 90%; box-shadow: 0 5px 15px rgba(0,0,0,0.3); text-align: center; }
         .modal-buttons { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
         .modal-btn { padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; border: 1px solid #ddd; }
-        .modal-btn-confirm { background: #dc3545; color: white; border: none; }
+        .modal-btn-confirm { background: #007bff; color: white; border: none; }
     </style>
 </head>
 <body>
 
 <div id="sidebar">
     <h2>場地租用系統 ✨</h2>
-    <div id="connectionStatus" style="font-size: 11px; margin-bottom: 10px; padding: 8px; border-radius: 6px; background: #fff3cd; color: #856404; font-weight: bold;">
-        狀態：正在安全連線...
+    <div id="connectionStatus" style="font-size: 11px; margin-bottom: 10px; padding: 8px; border-radius: 6px; background: #fff3cd; color: #856404; font-weight: bold; border: 1px solid #ffeeba;">
+        狀態：雲端初始化中...
     </div>
     
     <div class="input-group">
@@ -94,11 +98,11 @@
         <input type="date" id="eventDate">
     </div>
     <div class="input-group">
-        <label>結束日期 (批量時選填)</label>
+        <label>結束日期 (批量預約時選填)</label>
         <input type="date" id="eventEndDate">
     </div>
     <div class="input-group">
-        <label>連開週數</label>
+        <label>連開週數 (若無結束日期)</label>
         <select id="repeatCount">
             <option value="1">僅一次</option>
             <option value="4">連開 4 週</option>
@@ -145,14 +149,12 @@
             <option value="成人">成人班</option>
         </select>
     </div>
-    <button class="btn-add" id="addBookingBtn">確認新增預約</button>
-    <button class="btn-view-toggle" onclick="window.toggleView('month')">顯示月度看板</button>
+    <button class="btn-add" id="addBookingBtn">確認新增雲端預約</button>
+    <button class="btn-view-toggle" onclick="window.toggleView('month')">顯示月度詳細看板</button>
     <button class="btn-manage-toggle" onclick="window.toggleView('manage')">批量移除管理</button>
     <button class="btn-export" onclick="window.exportToExcelCalendar()">匯出日曆 EXCEL</button>
     
     <div id="bookingList" class="mt-4"><div id="listContent"></div></div>
-    
-    <button onclick="window.openConfig()" style="font-size: 10px; margin-top: 20px; color: #999; border: none; background: none; cursor: pointer;">⚙️ 手動配置雲端憑證</button>
 </div>
 
 <div id="main">
@@ -162,39 +164,26 @@
             <div id="dateDisplay">載入中...</div>
             <button id="nextMonthBtn" class="nav-btn" onclick="window.changeMonth(1)">❯</button>
         </div>
-        <div id="viewStatus" style="color:#666; font-size: 11px;">正在初始化身分驗證...</div>
+        <div id="viewStatus" style="color:#666; font-size: 11px;">雲端狀態：偵測中...</div>
     </header>
     <div id="grid-container"></div>
     <div id="month-container"><div class="calendar-grid" id="calendarGrid"></div></div>
     <div id="manage-container">
         <div class="manage-controls">
-            <input type="text" id="manageSearch" placeholder="搜尋活動..." oninput="window.renderManageView()">
-            <button onclick="window.deleteSelectedBookings()" style="background:#dc3545; color:white; border:none; padding: 5px 15px; border-radius: 4px; cursor:pointer;">刪除選中項目</button>
+            <input type="text" id="manageSearch" placeholder="搜尋活動名稱..." oninput="window.renderManageView()" style="padding: 5px 10px; border-radius: 4px; border: 1px solid #ccc; width: 200px;">
+            <button onclick="window.deleteSelectedBookings()" style="background:#dc3545; color:white; border:none; padding: 6px 15px; border-radius: 4px; cursor:pointer; font-weight:bold;">刪除選中項目</button>
         </div>
         <table class="manage-table">
-            <thead>
-                <tr>
-                    <th><input type="checkbox" onclick="window.toggleSelectAll(this)"></th>
-                    <th>日期</th>
-                    <th>場地</th>
-                    <th>名稱</th>
-                    <th>時間</th>
-                </tr>
-            </thead>
+            <thead><tr><th><input type="checkbox" onclick="window.toggleSelectAll(this)"></th><th>日期</th><th>場地</th><th>名稱</th><th>時間</th></tr></thead>
             <tbody id="manageTableBody"></tbody>
         </table>
     </div>
 </div>
 
-<!-- 彈窗 -->
 <div id="custom-modal">
     <div class="modal-content">
         <h3 id="modal-title">提示</h3>
         <p id="modal-message"></p>
-        <div id="config-panel" style="display:none; margin-top: 15px; text-align: left;">
-            <label style="font-size: 12px; font-weight: bold;">請輸入憑證 JSON:</label>
-            <textarea id="configInput" rows="6" style="width:100%; font-family: monospace; font-size: 11px; margin-top: 5px;" placeholder='{"apiKey": "...", ...}'></textarea>
-        </div>
         <div class="modal-buttons">
             <button id="modal-cancel" class="modal-btn" onclick="window.closeModal(false)">取消</button>
             <button id="modal-confirm" class="modal-btn modal-btn-confirm" onclick="window.closeModal(true)">確定</button>
@@ -204,24 +193,39 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-    const rooms = ["活動一室", "活動二室", "活動三室", "多功能室", "青年室", "大廳", "圖書館"];
+    // Firebase 配置
+    const firebaseConfig = {
+        apiKey: "AIzaSyDhTwfRaqrBJZm0nsdsahpYM3cNEO4Yr0g",
+        authDomain: "mycompanyvenue.firebaseapp.com",
+        projectId: "mycompanyvenue",
+        storageBucket: "mycompanyvenue.firebasestorage.app",
+        messagingSenderId: "680550533008",
+        appId: "1:680550533008:web:6bb6a886c62996bd161515",
+        measurementId: "G-995TLVX86R"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const appId = 'mycompanyvenue';
+
+    // 2026 公眾假期表
     const holidays2026 = {"2026-01-01":"元旦","2026-02-16":"農曆除夕","2026-02-17":"農曆正月初一","2026-02-18":"農曆正月初二","2026-02-19":"農曆正月初三","2026-02-20":"農曆正月初四","2026-02-21":"農曆正月初五","2026-03-08":"婦女節","2026-04-03":"耶穌受難日","2026-04-04":"復活節前日","2026-04-05":"清明節","2026-05-01":"勞動節","2026-05-24":"佛誕節","2026-06-19":"端午節","2026-09-26":"中秋節翌日","2026-10-01":"國慶日","2026-10-02":"國慶日翌日","2026-10-18":"重陽節","2026-12-20":"特區成立紀念日","2026-12-22":"冬至","2026-12-24":"聖誕節前日","2026-12-25":"聖誕節"};
 
+    const rooms = ["活動一室", "活動二室", "活動三室", "多功能室", "青年室", "大廳", "圖書館"];
     window.bookings = [];
     window.currentView = 'day';
-    let db, auth, colRef, user;
-    let isCloudActive = false;
+    let colRef, user = null;
 
-    // 彈窗
+    // 自定義彈窗
     let modalCallback = null;
-    window.showModal = (title, message, isConfirm, callback, showConfig = false) => {
+    window.showModal = (title, message, isConfirm, callback) => {
         document.getElementById('modal-title').innerText = title;
         document.getElementById('modal-message').innerText = message;
         document.getElementById('modal-cancel').style.display = isConfirm ? 'block' : 'none';
-        document.getElementById('config-panel').style.display = showConfig ? 'block' : 'none';
         document.getElementById('custom-modal').style.display = 'flex';
         modalCallback = callback;
     };
@@ -230,86 +234,53 @@
         if(modalCallback) modalCallback(res);
     };
 
-    window.openConfig = () => {
-        window.showModal("手動設定憑證", "請貼入 Firebase Config 以啟動共享功能。", true, (res) => {
-            if(res) {
-                const val = document.getElementById('configInput').value;
-                if(val) { localStorage.setItem('my_firebase_config', val); location.reload(); }
-            }
-        }, true);
-    };
-
-    // 關鍵初始化流程
+    // 初始化連線邏輯
     const initApp = async () => {
-        let config;
         const statusEl = document.getElementById('connectionStatus');
         const viewStatusEl = document.getElementById('viewStatus');
         
         try {
-            if (typeof __firebase_config !== 'undefined') config = JSON.parse(__firebase_config);
-            else if (localStorage.getItem('my_firebase_config')) config = JSON.parse(localStorage.getItem('my_firebase_config'));
-        } catch(e) {}
-
-        if (config) {
-            try {
-                const app = initializeApp(config);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'shared-app';
-                
-                // Rule 3: Auth First
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
+            // Rule 3: Auth first
+            await signInAnonymously(auth);
+            onAuthStateChanged(auth, (u) => {
+                user = u;
+                if (user) {
+                    statusEl.innerText = "狀態：雲端已同步 ✨";
+                    statusEl.style.background = "#d4edda"; statusEl.style.color = "#155724";
+                    viewStatusEl.innerText = "已連線至公司雲端";
+                    
+                    // Rule 1: Strict paths
+                    colRef = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
+                    listenData();
                 } else {
-                    await signInAnonymously(auth);
+                    statusEl.innerText = "狀態：身分驗證失敗";
+                    viewStatusEl.innerHTML = "<b style='color:red'>錯誤：請在 Firebase Console 開啟 Anonymous Auth。</b>";
                 }
-                
-                onAuthStateChanged(auth, (u) => {
-                    user = u;
-                    if (user) {
-                        isCloudActive = true;
-                        statusEl.innerText = "狀態：雲端同步中 ✨";
-                        statusEl.style.background = "#d4edda"; statusEl.style.color = "#155724";
-                        viewStatusEl.innerText = "系統已連接雲端";
-                        // Rule 1: Strict Paths
-                        colRef = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
-                        startListening();
-                    }
-                });
-            } catch (err) {
-                console.error("Cloud Error", err);
-                statusEl.innerText = "狀態：雲端失敗 (改用本地模式)";
-                loadLocalData();
+            });
+        } catch(err) {
+            console.error(err);
+            if (err.code === 'auth/configuration-not-found') {
+                statusEl.innerText = "狀態：Auth 未配置";
+                viewStatusEl.innerHTML = "<b style='color:red'>連線失敗：請在 Firebase Authentication 點擊『Get Started』並啟用『Anonymous (匿名)』。</b>";
+            } else {
+                statusEl.innerText = "狀態：連線攔截";
+                viewStatusEl.innerHTML = "<b style='color:red'>錯誤：請檢查 Firebase 規則是否已發佈。</b>";
             }
-        } else {
-            statusEl.innerText = "狀態：本地模式 (離線運作)";
-            loadLocalData();
         }
     };
 
-    function startListening() {
+    function listenData() {
         if (!user) return;
-        // 加入 Error Callback 避免 permission-denied 造成崩潰
         onSnapshot(colRef, (snap) => {
             window.bookings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             window.renderAll();
-        }, (error) => {
-            console.error("Snapshot error:", error);
-            if (error.code === 'permission-denied') {
-                document.getElementById('viewStatus').innerText = "連線權限不足，請檢查設定";
-            }
+        }, (err) => {
+            console.error("Snapshot error:", err);
+            document.getElementById('viewStatus').innerHTML = "<b style='color:red'>連線失敗：請至 Firebase -> Firestore -> Rules 將規則改為『if true』並發佈。</b>";
         });
     }
 
-    function loadLocalData() {
-        window.bookings = JSON.parse(localStorage.getItem('offlineBookings') || "[]");
-        window.renderAll();
-    }
-
-    function saveLocalData() {
-        if (!isCloudActive) localStorage.setItem('offlineBookings', JSON.stringify(window.bookings));
-    }
-
+    // --- 介面函式 ---
     window.onload = () => {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('eventDate').value = today;
@@ -332,6 +303,7 @@
     }
 
     document.getElementById('addBookingBtn').onclick = async () => {
+        if(!user) return window.showModal("提示", "連線中，請稍後", false);
         const name = document.getElementById('eventName').value;
         const startD = document.getElementById('eventDate').value;
         const endD = document.getElementById('eventEndDate').value;
@@ -341,56 +313,32 @@
         const cat = document.getElementById('catSelect').value;
         let repeat = parseInt(document.getElementById('repeatCount').value);
 
-        if(!name || !startD) return window.showModal("提示", "請輸入活動名稱與日期", false);
-        
+        if(!name || !startD) return window.showModal("提示", "請輸入預約活動名稱與開始日期", false);
         const startBase = new Date(startD);
         let endLimit = endD ? new Date(endD) : new Date(startBase.getTime() + (repeat-1)*7*86400000);
         if(endD) repeat = 999;
-
         const weeks = Array.from(document.querySelectorAll('#weekSelector input:checked')).map(cb => parseInt(cb.value));
 
         for (let i = 0; i < repeat; i++) {
             const check = new Date(startBase.getTime() + i*7*86400000);
             if(check > endLimit) break;
+            const dates = (weeks.length > 0) ? weeks.map(wd => {
+                let d = new Date(startBase); d.setDate(startBase.getDate() - startBase.getDay() + wd + (i*7));
+                return (d >= startBase && d <= endLimit) ? d.toISOString().split('T')[0] : null;
+            }).filter(d => d) : [check.toISOString().split('T')[0]];
 
-            const datesToAdd = [];
-            if (weeks.length > 0) {
-                weeks.forEach(wd => {
-                    const target = new Date(startBase);
-                    target.setDate(startBase.getDate() - startBase.getDay() + wd + (i*7));
-                    if (target >= startBase && target <= endLimit) datesToAdd.push(target.toISOString().split('T')[0]);
-                });
-            } else {
-                datesToAdd.push(check.toISOString().split('T')[0]);
-            }
-
-            for (const ds of datesToAdd) {
-                const newBooking = { name, date: ds, room, start: startT, end: endT, cat };
-                if (isCloudActive && user) {
-                    await addDoc(colRef, newBooking);
-                } else {
-                    newBooking.id = Date.now() + Math.random();
-                    window.bookings.push(newBooking);
-                }
+            for (const ds of dates) {
+                await addDoc(colRef, { name, date: ds, room, start: startT, end: endT, cat });
             }
             if(i > 100) break;
         }
-        
-        if(!isCloudActive) { saveLocalData(); window.renderAll(); }
         document.getElementById('eventName').value = "";
     };
 
     window.handleDelete = (id) => {
-        window.showModal("確認", "確定要刪除此預約嗎？", true, async (ok) => {
-            if(ok) {
-                if(isCloudActive && user) {
-                    await deleteDoc(doc(db, colRef.path, id));
-                } else {
-                    window.bookings = window.bookings.filter(b => b.id != id);
-                    saveLocalData();
-                    window.renderAll();
-                }
-            }
+        if(!user) return;
+        window.showModal("確認", "確定要刪除這筆預約嗎？", true, async (ok) => {
+            if(ok) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bookings', id));
         });
     };
 
@@ -405,7 +353,6 @@
         const list = document.getElementById('listContent');
         list.innerHTML = "";
         const vd = document.getElementById('eventDate').value;
-        if(!vd) return;
         const hol = holidays2026[vd];
         document.getElementById('dateDisplay').innerHTML = vd + (hol ? ` <span style="color:red; font-size:14px;">(${hol})</span>` : "");
 
@@ -417,12 +364,11 @@
             const cell = document.getElementById(`cell-09:00-${b.room}`);
             if (cell) {
                 const block = document.createElement('div');
-                block.className = `event-block cat-${b.cat}`;
-                block.style.top = top + "px"; block.style.height = (h-4) + "px";
+                block.className = `event-block cat-${b.cat}`; block.style.top = top + "px"; block.style.height = (h-4) + "px";
                 block.innerHTML = `<span class="del-x" onclick="window.handleDelete('${b.id}')">×</span><b>${b.name}</b><br><small>${b.start}-${b.end}</small>`;
                 cell.appendChild(block);
             }
-            list.innerHTML += `<div style="font-size:11px; margin-bottom:5px; border-bottom: 1px solid #eee;"><b>[${b.room}]</b> ${b.name} <button onclick="window.handleDelete('${b.id}')" style="padding:1px 4px; font-size:9px; background:#dc3545; color:white; border:none; border-radius:3px;">刪除</button></div>`;
+            list.innerHTML += `<div style="font-size:11px; margin-bottom:5px; border-bottom: 1px solid #eee; padding-bottom: 3px;"><b>[${b.room}]</b> ${b.name} <button onclick="window.handleDelete('${b.id}')" style="padding:1px 4px; font-size:9px; background:#dc3545; color:white; border:none; border-radius:3px; cursor:pointer;">刪除</button></div>`;
         });
     }
 
@@ -431,15 +377,19 @@
         grid.innerHTML = ['日','一','二','三','四','五','六'].map(d => `<div class="calendar-day-header">${d}</div>`).join('');
         const di = new Date(document.getElementById('eventDate').value || new Date());
         const y = di.getFullYear(), m = di.getMonth();
-        document.getElementById('dateDisplay').innerText = `${y}年 ${m+1}月`;
+        document.getElementById('dateDisplay').innerText = `${y}年 ${m+1}月 看板`;
         const first = new Date(y, m, 1).getDay(), total = new Date(y, m+1, 0).getDate();
-        for(let i=0; i<first; i++) grid.innerHTML += `<div class="calendar-day" style="opacity:0.3"></div>`;
+        for(let i=0; i<first; i++) grid.innerHTML += `<div class="calendar-day" style="opacity:0.2"></div>`;
         for(let d=1; d<=total; d++) {
             const ds = `${y}-${(m+1).toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
             const hol = holidays2026[ds];
             const cell = document.createElement('div');
             cell.className = `calendar-day ${hol?'is-holiday':''}`;
-            cell.innerHTML = `<div class="day-number-container"><span class="day-number" onclick="window.goToDate('${ds}')">${d}</span>${hol?`<span class="holiday-label">${hol}</span>`:''}</div>`;
+            cell.innerHTML = `
+                <div class="day-number-container">
+                    <span class="day-number" onclick="window.goToDate('${ds}')">${d}</span>
+                    ${hol ? `<span class="holiday-label">${hol}</span>` : ''}
+                </div>`;
             window.bookings.filter(b => b.date === ds).sort((a,b)=>a.start.localeCompare(b.start)).forEach(e => {
                 cell.innerHTML += `<div class="day-event-detail cat-${e.cat}"><span class="del-mini" onclick="window.handleDelete('${e.id}')">×</span>[${e.room.replace('活動','')}] ${e.name}</div>`;
             });
@@ -483,19 +433,13 @@
     };
     window.deleteSelectedBookings = () => {
         const cbs = document.querySelectorAll('.manage-check:checked');
-        if (cbs.length === 0) return window.showModal("提示", "請先勾選項目", false);
-        window.showModal("確認", `確定刪除這 ${cbs.length} 項預約嗎？`, true, async (ok) => {
-            if (ok) {
-                for (const cb of cbs) {
-                    if (isCloudActive && user) await deleteDoc(doc(db, colRef.path, cb.value));
-                    else window.bookings = window.bookings.filter(b => b.id != cb.value);
-                }
-                if(!isCloudActive) { saveLocalData(); window.renderAll(); }
-            }
+        if (cbs.length === 0) return window.showModal("提示", "未勾選項目", false);
+        window.showModal("批量刪除", `確定刪除這 ${cbs.length} 項預約嗎？`, true, async (ok) => {
+            if (ok) { for (const cb of cbs) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bookings', cb.value)); }
         });
     };
     window.exportToExcelCalendar = () => {
-        if (typeof XLSX === 'undefined') return window.showModal("提示", "組件加載中...", false);
+        if (typeof XLSX === 'undefined') return window.showModal("提示", "Excel 載入中", false);
         const ds = document.getElementById('eventDate').value;
         const y = parseInt(ds.substring(0,4)), m = parseInt(ds.substring(5,7))-1;
         const days = new Date(y, m+1, 0).getDate(), first = new Date(y, m, 1).getDay();
@@ -503,9 +447,8 @@
         let cur = Array(7).fill("");
         for(let i=first, d=1; d<=days; d++, i=(i+1)%7) {
             const dateS = `${y}-${(m+1).toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
-            const holiday = holidays2026[dateS];
-            const items = window.bookings.filter(b => b.date === dateS).sort((a,b)=>a.start.localeCompare(b.start));
-            cur[i] = `【${d}日】${holiday?'('+holiday+')':''}\n` + items.map(e => `${e.start} [${e.room}] ${e.name}`).join('\n');
+            const eb = window.bookings.filter(b => b.date === dateS).sort((a,b)=>a.start.localeCompare(b.start));
+            cur[i] = `【${d}日】\n` + eb.map(e => `${e.start} [${e.room}] ${e.name}`).join('\n');
             if (i === 6 || d === days) { rows.push(cur); cur = Array(7).fill(""); }
         }
         const ws = XLSX.utils.aoa_to_sheet(rows);
