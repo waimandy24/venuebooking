@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>中心場地租用系統 v32 (修復視圖切換與雲端同步)</title>
+    <title>中心場地租用系統 v33 (預約衝突檢查與導航強化)</title>
     <!-- SheetJS 引入 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -13,6 +13,7 @@
             --brown: #efebe9; --grey: #f5f5f5;
             --border: #ddd; --header: #f8f9fa;
             --holiday-red: #d32f2f;
+            --warning-amber: #ff8f00;
         }
         body { font-family: "Microsoft JhengHei", "PingFang TC", sans-serif; display: flex; margin: 0; height: 100vh; overflow: hidden; background: #f4f6f8; }
         
@@ -35,8 +36,9 @@
         #main { flex-grow: 1; display: flex; flex-direction: column; background: white; position: relative; }
         header { padding: 10px 20px; background: #fff; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .header-title-area { display: flex; align-items: center; gap: 15px; }
-        #dateDisplay { font-size: 18px; font-weight: bold; color: #333; }
-        .nav-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 16px; display: none; }
+        #dateDisplay { font-size: 18px; font-weight: bold; color: #333; min-width: 250px; text-align: center; }
+        .nav-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 18px; font-weight: bold; color: #007bff; }
+        .nav-btn:hover { background: #e0e0e0; }
 
         /* 網格系統 */
         #grid-container { flex-grow: 1; overflow: auto; display: grid; grid-template-columns: 70px repeat(7, 1fr); grid-template-rows: 40px repeat(28, 30px); }
@@ -44,20 +46,23 @@
         .time-label { background: #f1f3f5; position: sticky; left: 0; z-index: 5; text-align: center; line-height: 30px; border-bottom: 1px solid #eee; border-right: 1px solid #bbb; font-size: 11px; }
         .cell { border-bottom: 1px solid #f2f2f2; border-right: 1px solid #f2f2f2; position: relative; }
 
+        /* 月曆 */
         #month-container { display: none; flex-grow: 1; overflow-y: auto; padding: 15px; background: #f8f9fa; }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
         .calendar-day-header { text-align: center; font-weight: bold; padding: 8px; background: #34495e; color: white; border-radius: 3px; font-size: 13px; }
         .calendar-day { background: white; border: 1px solid #e0e0e0; min-height: 140px; border-radius: 4px; padding: 5px; display: flex; flex-direction: column; overflow-y: auto; position: relative; }
         .calendar-day.today { border: 2px solid #007bff; background: #f0f7ff; }
         .day-number-container { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 2px; margin-bottom: 5px; }
-        .day-number { font-weight: bold; font-size: 14px; cursor: pointer; color: #007bff; }
+        .day-number { font-weight: bold; font-size: 14px; cursor: pointer; color: #007bff; padding: 2px 6px; border-radius: 4px; }
+        .day-number:hover { background: #007bff; color: white; }
         .holiday-label { font-size: 10px; color: var(--holiday-red); font-weight: bold; }
 
         .event-block { position: absolute; left: 3px; right: 3px; border-radius: 3px; padding: 4px; font-size: 11px; z-index: 2; box-shadow: 1px 1px 3px rgba(0,0,0,0.15); line-height: 1.2; overflow: hidden; border: 0.5px solid rgba(0,0,0,0.1); }
-        .event-block .del-x { position: absolute; top: 2px; right: 4px; cursor: pointer; font-weight: bold; font-size: 16px; color: #333; z-index: 10; }
+        .event-block .del-x { position: absolute; top: 1px; right: 4px; cursor: pointer; font-weight: bold; font-size: 16px; color: #333; z-index: 10; }
         .day-event-detail { position: relative; font-size: 10px; padding: 3px 22px 3px 5px; margin-bottom: 3px; border-radius: 3px; border-left: 3px solid rgba(0,0,0,0.2); overflow: hidden; }
         .day-event-detail .del-mini { position: absolute; top: 50%; transform: translateY(-50%); right: 4px; cursor: pointer; color: #999; font-weight: bold; font-size: 14px; }
 
+        /* 批量管理 */
         #manage-container { display: none; flex-grow: 1; overflow-y: auto; padding: 20px; background: white; }
         .manage-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .manage-table { width: 100%; border-collapse: collapse; }
@@ -75,10 +80,12 @@
 
         /* 彈窗 */
         #custom-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; }
-        .modal-content { background: white; padding: 25px; border-radius: 10px; max-width: 450px; width: 90%; box-shadow: 0 5px 15px rgba(0,0,0,0.3); text-align: center; }
-        .modal-buttons { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
+        .modal-content { background: white; padding: 25px; border-radius: 10px; max-width: 500px; width: 90%; box-shadow: 0 5px 15px rgba(0,0,0,0.3); text-align: left; }
+        .modal-buttons { margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; }
         .modal-btn { padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; border: 1px solid #ddd; }
         .modal-btn-confirm { background: #007bff; color: white; border: none; }
+        .modal-btn-danger { background: #dc3545; color: white; border: none; }
+        .conflict-list { max-height: 200px; overflow-y: auto; background: #fff8f1; padding: 10px; border-radius: 5px; border: 1px solid #ffe0b2; margin-top: 10px; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -160,9 +167,9 @@
 <div id="main">
     <header>
         <div class="header-title-area">
-            <button id="prevMonthBtn" class="nav-btn" onclick="window.changeMonth(-1)">❮</button>
+            <button class="nav-btn" onclick="window.stepNavigation(-1)">❮</button>
             <div id="dateDisplay">載入中...</div>
-            <button id="nextMonthBtn" class="nav-btn" onclick="window.changeMonth(1)">❯</button>
+            <button class="nav-btn" onclick="window.stepNavigation(1)">❯</button>
         </div>
         <div id="viewStatus" style="color:#666; font-size: 11px;">雲端狀態：偵測中...</div>
     </header>
@@ -180,10 +187,11 @@
     </div>
 </div>
 
+<!-- 彈窗 -->
 <div id="custom-modal">
     <div class="modal-content">
         <h3 id="modal-title">提示</h3>
-        <p id="modal-message"></p>
+        <div id="modal-message" style="font-size: 14px; color: #444; margin-bottom: 15px;"></div>
         <div class="modal-buttons">
             <button id="modal-cancel" class="modal-btn" onclick="window.closeModal(false)">取消</button>
             <button id="modal-confirm" class="modal-btn modal-btn-confirm" onclick="window.closeModal(true)">確定</button>
@@ -196,7 +204,6 @@
     import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-    // Firebase 配置 (保留您的配置)
     const firebaseConfig = {
         apiKey: "AIzaSyDhTwfRaqrBJZm0nsdsahpYM3cNEO4Yr0g",
         authDomain: "mycompanyvenue.firebaseapp.com",
@@ -212,7 +219,6 @@
     const auth = getAuth(app);
     const appId = 'mycompanyvenue';
 
-    // 2026 公眾假期表
     const holidays2026 = {"2026-01-01":"元旦","2026-02-16":"農曆除夕","2026-02-17":"農曆正月初一","2026-02-18":"農曆正月初二","2026-02-19":"農曆正月初三","2026-02-20":"農曆正月初四","2026-02-21":"農曆正月初五","2026-03-08":"婦女節","2026-04-03":"耶穌受難日","2026-04-04":"復活節前日","2026-04-05":"清明節","2026-05-01":"勞動節","2026-05-24":"佛誕節","2026-06-19":"端午節","2026-09-26":"中秋節翌日","2026-10-01":"國慶日","2026-10-02":"國慶日翌日","2026-10-18":"重陽節","2026-12-20":"特區成立紀念日","2026-12-22":"冬至","2026-12-24":"聖誕節前日","2026-12-25":"聖誕節"};
 
     const rooms = ["活動一室", "活動二室", "活動三室", "多功能室", "青年室", "大廳", "圖書館"];
@@ -224,7 +230,7 @@
     let modalCallback = null;
     window.showModal = (title, message, isConfirm, callback) => {
         document.getElementById('modal-title').innerText = title;
-        document.getElementById('modal-message').innerText = message;
+        document.getElementById('modal-message').innerHTML = message;
         document.getElementById('modal-cancel').style.display = isConfirm ? 'block' : 'none';
         document.getElementById('custom-modal').style.display = 'flex';
         modalCallback = callback;
@@ -234,11 +240,9 @@
         if(modalCallback) modalCallback(res);
     };
 
-    // 初始化連線邏輯
     const initApp = async () => {
         const statusEl = document.getElementById('connectionStatus');
         const viewStatusEl = document.getElementById('viewStatus');
-        
         try {
             await signInAnonymously(auth);
             onAuthStateChanged(auth, (u) => {
@@ -249,15 +253,11 @@
                     viewStatusEl.innerText = "已連線至公司雲端";
                     colRef = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
                     listenData();
-                } else {
-                    statusEl.innerText = "狀態：身分驗證失敗";
-                    viewStatusEl.innerHTML = "<b style='color:red'>錯誤：請在 Firebase Console 開啟 Anonymous Auth。</b>";
                 }
             });
         } catch(err) {
-            console.error(err);
             statusEl.innerText = "狀態：連線攔截";
-            viewStatusEl.innerHTML = "<b style='color:red'>連線失敗：請檢查 Firebase 規則。</b>";
+            viewStatusEl.innerHTML = "<b style='color:red'>錯誤：請檢查規則。</b>";
         }
     };
 
@@ -267,12 +267,10 @@
             window.bookings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             window.renderAll();
         }, (err) => {
-            console.error("Snapshot error:", err);
-            document.getElementById('viewStatus').innerHTML = "<b style='color:red'>權限不足：請檢查 Rules 設定。</b>";
+            document.getElementById('viewStatus').innerHTML = "<b style='color:red'>權限不足。</b>";
         });
     }
 
-    // --- 介面函式 ---
     window.onload = () => {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('eventDate').value = today;
@@ -294,42 +292,29 @@
         }
     }
 
-    // --- 關鍵修正：視圖切換邏輯 ---
-    window.toggleView = (t) => {
-        // 如果目前已經在目標視圖，點擊按鈕則切換回日看板
-        if (window.currentView === t) {
-            t = 'day';
-        }
-        
-        window.currentView = t;
-        
-        // 更新按鈕文字
-        const toggleBtn = document.getElementById('toggleViewBtn');
-        const manageBtn = document.getElementById('toggleManageBtn');
-        
-        if (t === 'month') {
-            toggleBtn.innerText = "切換回單日詳細";
-            manageBtn.innerText = "批量移除管理";
-        } else if (t === 'manage') {
-            toggleBtn.innerText = "顯示月度詳細看板";
-            manageBtn.innerText = "切換回單日詳細";
+    // --- 強化：導航切換 (支援按天或按月) ---
+    window.stepNavigation = (delta) => {
+        const dateInput = document.getElementById('eventDate');
+        const current = new Date(dateInput.value);
+        if (window.currentView === 'month') {
+            current.setMonth(current.getMonth() + delta);
         } else {
-            toggleBtn.innerText = "顯示月度詳細看板";
-            manageBtn.innerText = "批量移除管理";
+            current.setDate(current.getDate() + delta);
         }
-
-        document.getElementById('grid-container').style.display = t === 'day' ? 'grid' : 'none';
-        document.getElementById('month-container').style.display = t === 'month' ? 'block' : 'none';
-        document.getElementById('manage-container').style.display = t === 'manage' ? 'block' : 'none';
-        
-        // 只在月視圖顯示月份導航按鈕
-        document.querySelectorAll('.nav-btn').forEach(b => b.style.display = t === 'month' ? 'inline-block' : 'none');
-        
+        dateInput.value = current.toISOString().split('T')[0];
         window.renderAll();
     };
 
-    // --- 其他原有功能 ---
-    document.getElementById('addBookingBtn').onclick = async () => {
+    // --- 強化：衝突檢查功能 ---
+    function findConflicts(dateStr, room, startTime, endTime) {
+        return window.bookings.filter(b => 
+            b.date === dateStr && 
+            b.room === room && 
+            ((startTime < b.end) && (endTime > b.start))
+        );
+    }
+
+    window.handleAddBooking = async () => {
         if(!user) return window.showModal("提示", "連線中，請稍後", false);
         const name = document.getElementById('eventName').value;
         const startD = document.getElementById('eventDate').value;
@@ -346,6 +331,8 @@
         if(endD) repeat = 999;
         const weeks = Array.from(document.querySelectorAll('#weekSelector input:checked')).map(cb => parseInt(cb.value));
 
+        // 收集所有預定新增的預約資訊
+        const newItems = [];
         for (let i = 0; i < repeat; i++) {
             const check = new Date(startBase.getTime() + i*7*86400000);
             if(check > endLimit) break;
@@ -354,12 +341,49 @@
                 return (d >= startBase && d <= endLimit) ? d.toISOString().split('T')[0] : null;
             }).filter(d => d) : [check.toISOString().split('T')[0]];
 
-            for (const ds of dates) {
-                await addDoc(colRef, { name, date: ds, room, start: startT, end: endT, cat });
-            }
+            dates.forEach(ds => newItems.push({ name, date: ds, room, start: startT, end: endT, cat }));
             if(i > 100) break;
         }
+
+        // 檢查衝突
+        let allConflicts = [];
+        newItems.forEach(item => {
+            const conflicts = findConflicts(item.date, item.room, item.start, item.end);
+            if (conflicts.length > 0) {
+                conflicts.forEach(c => allConflicts.push(`[${item.date}] ${c.start}-${c.end} 已被 "${c.name}" 佔用`));
+            }
+        });
+
+        // 如果有衝突，顯示警告
+        if (allConflicts.length > 0) {
+            const msg = `<p style='color:red; font-weight:bold;'>⚠️ 發現預約時段衝突：</p><div class='conflict-list'>${[...new Set(allConflicts)].join('<br>')}</div><p style='margin-top:10px;'>是否要無視衝突繼續新增？</p>`;
+            window.showModal("衝突警告", msg, true, (ok) => {
+                if (ok) executeAdd(newItems);
+            });
+        } else {
+            executeAdd(newItems);
+        }
+    };
+
+    async function executeAdd(items) {
+        for (const item of items) {
+            await addDoc(colRef, item);
+        }
         document.getElementById('eventName').value = "";
+        window.showModal("成功", "預約已成功新增至雲端。", false);
+    }
+
+    window.toggleView = (t) => {
+        if (window.currentView === t) t = 'day';
+        window.currentView = t;
+        const toggleBtn = document.getElementById('toggleViewBtn');
+        const manageBtn = document.getElementById('toggleManageBtn');
+        toggleBtn.innerText = t === 'month' ? "切換回單日詳細" : "顯示月度詳細看板";
+        manageBtn.innerText = t === 'manage' ? "切換回單日詳細" : "批量移除管理";
+        document.getElementById('grid-container').style.display = t === 'day' ? 'grid' : 'none';
+        document.getElementById('month-container').style.display = t === 'month' ? 'block' : 'none';
+        document.getElementById('manage-container').style.display = t === 'manage' ? 'block' : 'none';
+        window.renderAll();
     };
 
     window.handleDelete = (id) => {
@@ -382,7 +406,6 @@
         const vd = document.getElementById('eventDate').value;
         const hol = holidays2026[vd];
         document.getElementById('dateDisplay').innerHTML = vd + (hol ? ` <span style="color:red; font-size:14px;">(${hol})</span>` : "");
-
         window.bookings.filter(b => b.date === vd).forEach(b => {
             const sh = parseInt(b.start.split(':')[0]), sm = parseInt(b.start.split(':')[1]);
             const eh = parseInt(b.end.split(':')[0]), em = parseInt(b.end.split(':')[1]);
@@ -412,11 +435,8 @@
             const hol = holidays2026[ds];
             const cell = document.createElement('div');
             cell.className = `calendar-day ${hol?'is-holiday':''}`;
-            cell.innerHTML = `
-                <div class="day-number-container">
-                    <span class="day-number" onclick="window.goToDate('${ds}')">${d}</span>
-                    ${hol ? `<span class="holiday-label">${hol}</span>` : ''}
-                </div>`;
+            // --- 強化：日期數字可點擊 jumpToDay ---
+            cell.innerHTML = `<div class="day-number-container"><span class="day-number" onclick="window.goToDate('${ds}')">${d}</span>${hol?`<span class="holiday-label">${hol}</span>`:''}</div>`;
             window.bookings.filter(b => b.date === ds).sort((a,b)=>a.start.localeCompare(b.start)).forEach(e => {
                 cell.innerHTML += `<div class="day-event-detail cat-${e.cat}"><span class="del-mini" onclick="window.handleDelete('${e.id}')">×</span>[${e.room.replace('活動','')}] ${e.name}</div>`;
             });
@@ -436,13 +456,6 @@
     }
 
     window.goToDate = (ds) => { document.getElementById('eventDate').value = ds; window.toggleView('day'); };
-    
-    window.changeMonth = (delta) => {
-        const d = new Date(document.getElementById('eventDate').value || new Date());
-        d.setDate(1); d.setMonth(d.getMonth()+delta);
-        document.getElementById('eventDate').value = d.toISOString().split('T')[0];
-        window.renderAll();
-    };
     window.toggleAllWeeks = () => {
         const cbs = document.querySelectorAll('#weekSelector input[type="checkbox"]');
         const all = Array.from(cbs).every(c => c.checked);
