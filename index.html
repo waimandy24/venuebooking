@@ -2,12 +2,12 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>中心場地租用系統 v15 (新增結束日期功能)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中心場地租用系統 v16 (雲端同步公用版)</title>
     <!-- SheetJS 引入連結 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
-            /* 配色定義 */
             --pink: #fce4ec; --green: #e8f5e9; --blue: #e3f2fd;
             --orange: #fff3e0; --purple: #f3e5f5; --yellow: #fffde7;
             --brown: #efebe9; --grey: #f5f5f5;
@@ -15,81 +15,42 @@
             --holiday-red: #d32f2f;
         }
         body { font-family: "Microsoft JhengHei", "PingFang TC", sans-serif; display: flex; margin: 0; height: 100vh; overflow: hidden; background: #f4f6f8; }
-        
-        /* 左側操作區 */
         #sidebar { width: 340px; padding: 20px; background: #ffffff; border-right: 2px solid #ddd; display: flex; flex-direction: column; gap: 12px; box-shadow: 2px 0 10px rgba(0,0,0,0.05); overflow-y: auto; }
         h2 { margin: 0 0 10px 0; color: #2c3e50; border-left: 5px solid #007bff; padding-left: 10px; font-size: 20px; }
         .input-group { display: flex; flex-direction: column; gap: 4px; }
         label { font-weight: bold; font-size: 13px; color: #444; }
         input, select, button { padding: 8px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
-        input:focus, select:focus { border-color: #007bff; outline: none; }
-        
-        /* 星期選擇樣式 */
         .week-selector { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 5px; }
         .week-item { display: flex; align-items: center; gap: 3px; font-size: 12px; cursor: pointer; }
-        .week-item input { width: auto; padding: 0; cursor: pointer; }
-
-        .btn-add { background: #28a745; color: white; cursor: pointer; font-weight: bold; border: none; transition: 0.2s; margin-top: 5px; }
+        .btn-add { background: #28a745; color: white; cursor: pointer; font-weight: bold; border: none; margin-top: 5px; }
         .btn-view-toggle { background: #007bff; color: white; cursor: pointer; font-weight: bold; border: none; margin-top: 5px; }
         .btn-manage-toggle { background: #6c757d; color: white; cursor: pointer; font-weight: bold; border: none; margin-top: 5px; }
         .btn-export { background: #17a2b8; color: white; cursor: pointer; font-weight: bold; border: none; margin-top: 5px; }
-        button:hover { opacity: 0.85; transform: translateY(-1px); }
-
-        /* 預約清單 */
-        #bookingList { margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; }
-        .list-item { font-size: 12px; background: #fdfdfd; padding: 6px; margin-bottom: 4px; border-radius: 4px; display: flex; justify-content: space-between; border: 1px solid #eee; align-items: center; }
-        .del-btn { background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
-
-        /* 右側看板區 */
         #main { flex-grow: 1; display: flex; flex-direction: column; background: white; position: relative; }
         header { padding: 10px 20px; background: #fff; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .header-title-area { display: flex; align-items: center; gap: 15px; }
         #dateDisplay { font-size: 18px; font-weight: bold; color: #333; }
-        
-        /* 導航按鈕樣式 */
         .nav-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 16px; display: none; }
-        .nav-btn:hover { background: #e0e0e0; }
-
-        /* 單日視圖網格 */
         #grid-container { flex-grow: 1; overflow: auto; display: grid; grid-template-columns: 70px repeat(7, 1fr); grid-template-rows: 40px repeat(28, 30px); }
         .grid-header { background: #f1f3f5; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid #ccc; border-right: 1px solid #eee; text-align: center; line-height: 40px; font-weight: bold; color: #555; }
         .time-label { background: #f1f3f5; position: sticky; left: 0; z-index: 5; text-align: center; line-height: 30px; border-bottom: 1px solid #eee; border-right: 2px solid #bbb; font-size: 11px; color: #888; }
         .cell { border-bottom: 1px solid #f2f2f2; border-right: 1px solid #f2f2f2; position: relative; }
-
-        /* 月度視圖日曆 */
         #month-container { display: none; flex-grow: 1; overflow-y: auto; padding: 15px; background: #f8f9fa; }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
         .calendar-day-header { text-align: center; font-weight: bold; padding: 8px; background: #34495e; color: white; border-radius: 3px; font-size: 13px; }
-        .calendar-day { background: white; border: 1px solid #e0e0e0; min-height: 140px; border-radius: 4px; padding: 5px; cursor: default; display: flex; flex-direction: column; overflow-y: auto; position: relative; }
-        .calendar-day.other-month { background: #f1f1f1; opacity: 0.5; pointer-events: none; }
+        .calendar-day { background: white; border: 1px solid #e0e0e0; min-height: 140px; border-radius: 4px; padding: 5px; display: flex; flex-direction: column; overflow-y: auto; position: relative; }
         .calendar-day.today { border: 2px solid #007bff; background: #f0f7ff; }
         .day-number-container { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 2px; margin-bottom: 5px; }
         .day-number { font-weight: bold; font-size: 14px; cursor: pointer; color: #007bff; }
-        .day-number:hover { text-decoration: underline; }
         .holiday-label { font-size: 10px; color: var(--holiday-red); font-weight: bold; }
-        .calendar-day.is-holiday .day-number { color: var(--holiday-red); }
-
-        /* 批量管理視圖 */
+        .day-event-detail { position: relative; font-size: 10px; padding: 3px 22px 3px 5px; margin-bottom: 3px; border-radius: 3px; border-left: 3px solid rgba(0,0,0,0.2); overflow: hidden; }
+        .day-event-detail .del-mini { position: absolute; top: 50%; transform: translateY(-50%); right: 4px; cursor: pointer; color: #999; font-weight: bold; font-size: 14px; }
+        .event-block { position: absolute; left: 3px; right: 3px; border-radius: 3px; padding: 4px; font-size: 11px; z-index: 2; box-shadow: 1px 1px 3px rgba(0,0,0,0.15); line-height: 1.2; overflow: hidden; border: 0.5px solid rgba(0,0,0,0.1); }
+        .event-block .del-x { position: absolute; top: 2px; right: 5px; cursor: pointer; font-weight: bold; font-size: 16px; }
         #manage-container { display: none; flex-grow: 1; overflow-y: auto; padding: 20px; background: white; }
-        .manage-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; border: 1px solid #ddd; }
-        .manage-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        .manage-table th, .manage-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        .manage-table th { background: #f1f3f5; position: sticky; top: 0; z-index: 5; }
-        .manage-table tr:hover { background: #f9f9f9; }
-        .batch-del-btn { background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .search-input { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; width: 200px; }
-        
-        /* 月曆中的活動條 */
-        .day-event-detail { position: relative; font-size: 10px; padding: 3px 22px 3px 5px; margin-bottom: 3px; border-radius: 3px; line-height: 1.3; border-left: 3px solid rgba(0,0,0,0.2); overflow: hidden; }
-        .day-event-detail .del-mini { position: absolute; top: 50%; transform: translateY(-50%); right: 4px; cursor: pointer; color: #999; font-weight: bold; font-size: 14px; background: rgba(255,255,255,0.5); width: 16px; height: 16px; line-height: 14px; text-align: center; border-radius: 50%; }
-        .day-event-detail .del-mini:hover { color: white; background: #dc3545; }
-
-        /* 單日視圖活動區塊 */
-        .event-block { position: absolute; left: 3px; right: 3px; border-radius: 3px; padding: 4px; font-size: 11px; z-index: 2; box-shadow: 1px 1px 3px rgba(0,0,0,0.15); pointer-events: auto; line-height: 1.2; overflow: hidden; border: 0.5px solid rgba(0,0,0,0.1); }
-        .event-block .del-x { position: absolute; top: 2px; right: 5px; cursor: pointer; font-weight: bold; color: #333; opacity: 0.6; font-size: 16px; background: rgba(255,255,255,0.3); border-radius: 50%; width: 20px; height: 20px; line-height: 18px; text-align: center; }
-        .event-block .del-x:hover { opacity: 1; color: white; background: #dc3545; }
-        
-        /* 類別配色 */
+        .manage-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .manage-table { width: 100%; border-collapse: collapse; }
+        .manage-table th, .manage-table td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 13px; }
         .cat-持修 { background: var(--pink); border-left-color: #d81b60; }
         .cat-兒童 { background: var(--green); border-left-color: #43a047; }
         .cat-成人 { background: var(--blue); border-left-color: #1e88e5; }
@@ -98,53 +59,53 @@
         .cat-青年部 { background: var(--yellow); border-left-color: #fdd835; }
         .cat-職介部 { background: var(--brown); border-left-color: #6d4c41; }
         .cat-借場 { background: var(--grey); border-left-color: #757575; }
+
+        /* 自定義彈窗樣式 */
+        #custom-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 25px; border-radius: 10px; max-width: 400px; width: 90%; box-shadow: 0 5px 15px rgba(0,0,0,0.3); text-align: center; }
+        .modal-buttons { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
+        .modal-btn { padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; border: 1px solid #ddd; }
+        .modal-btn-confirm { background: #dc3545; color: white; border: none; }
     </style>
 </head>
 <body>
 
 <div id="sidebar">
-    <h2>場地租用系統</h2>
-    
+    <h2>場地租用系統 ✨</h2>
     <div class="input-group">
-        <label>活動/班級名稱</label>
+        <label>活動名稱</label>
         <input type="text" id="eventName" placeholder="例如：社區油畫班">
     </div>
-
     <div class="input-group">
         <label>開始日期</label>
-        <input type="date" id="eventDate" onchange="renderBookings()">
+        <input type="date" id="eventDate">
     </div>
-
     <div class="input-group">
         <label>結束日期 (批量預約時可選)</label>
         <input type="date" id="eventEndDate">
     </div>
-
     <div class="input-group">
-        <label>批量錄入 (連開週數)</label>
+        <label>連開週數 (若無結束日期)</label>
         <select id="repeatCount">
             <option value="1">僅一次</option>
             <option value="4">連開 4 週</option>
             <option value="8">連開 8 週</option>
             <option value="12">連開 12 週</option>
         </select>
-        <p style="font-size: 10px; color: #888; margin: 0;">註：若填寫結束日期，則優先以結束日期為準。</p>
     </div>
-
     <div class="input-group">
-        <label>選擇星期 (批量時有效，可多選)</label>
+        <label>選擇星期 (批量時多選)</label>
         <div class="week-selector" id="weekSelector">
-            <label class="week-item"><input type="checkbox" value="1">週一</label>
-            <label class="week-item"><input type="checkbox" value="2">週二</label>
-            <label class="week-item"><input type="checkbox" value="3">週三</label>
-            <label class="week-item"><input type="checkbox" value="4">週四</label>
-            <label class="week-item"><input type="checkbox" value="5">週五</label>
-            <label class="week-item"><input type="checkbox" value="6">週六</label>
-            <label class="week-item"><input type="checkbox" value="0">週日</label>
-            <button onclick="toggleAllWeeks()" style="padding: 2px 5px; font-size: 10px;">全選</button>
+            <label class="week-item"><input type="checkbox" value="1">一</label>
+            <label class="week-item"><input type="checkbox" value="2">二</label>
+            <label class="week-item"><input type="checkbox" value="3">三</label>
+            <label class="week-item"><input type="checkbox" value="4">四</label>
+            <label class="week-item"><input type="checkbox" value="5">五</label>
+            <label class="week-item"><input type="checkbox" value="6">六</label>
+            <label class="week-item"><input type="checkbox" value="0">日</label>
+            <button type="button" onclick="window.toggleAllWeeks()">全</button>
         </div>
     </div>
-
     <div class="input-group">
         <label>租用場地</label>
         <select id="roomSelect">
@@ -152,204 +113,165 @@
             <option>多功能室</option><option>青年室</option><option>大廳</option><option>圖書館</option>
         </select>
     </div>
-
     <div class="input-group">
         <label>時間範圍</label>
         <div style="display:flex; gap:5px; align-items:center;">
-            <input type="time" id="startTime" value="10:00"> <span>~</span> <input type="time" id="endTime" value="12:00">
+            <input type="time" id="startTime" value="10:00"> ~ <input type="time" id="endTime" value="12:00">
         </div>
     </div>
-
     <div class="input-group">
         <label>部門/類別</label>
         <select id="catSelect">
-            <option value="家庭部">家庭部 (橙)</option>
-            <option value="會員部">會員部 (紫)</option>
-            <option value="青年部">青年部 (黃)</option>
-            <option value="職介部">職介部 (棕)</option>
-            <option value="借場">借場 (灰)</option>
-            <option value="持修">持修班 (粉紅)</option>
-            <option value="兒童">兒童班 (綠)</option>
-            <option value="成人">成人班 (藍)</option>
+            <option value="家庭部">家庭部</option>
+            <option value="會員部">會員部</option>
+            <option value="青年部">青年部</option>
+            <option value="職介部">職介部</option>
+            <option value="借場">借場</option>
+            <option value="持修">持修班</option>
+            <option value="兒童">兒童班</option>
+            <option value="成人">成人班</option>
         </select>
     </div>
-
-    <button class="btn-add" onclick="addBooking()">確認新增預約</button>
-    
-    <button id="toggleBtn" class="btn-view-toggle" onclick="toggleView('month')">顯示月度詳細看板</button>
-    
-    <button id="manageBtn" class="btn-manage-toggle" onclick="toggleView('manage')">批量移除管理</button>
-
-    <button class="btn-export" onclick="exportToExcelCalendar()">匯出日曆格式 EXCEL</button>
-
-    <div id="bookingList">
-        <label>當前日期預約：</label>
-        <div id="listContent"></div>
-    </div>
+    <button class="btn-add" onclick="window.handleAddBooking()">確認新增雲端預約</button>
+    <button id="toggleBtn" class="btn-view-toggle" onclick="window.toggleView('month')">顯示月度看板</button>
+    <button id="manageBtn" class="btn-manage-toggle" onclick="window.toggleView('manage')">批量移除管理</button>
+    <button class="btn-export" onclick="window.exportToExcelCalendar()">匯出日曆 EXCEL</button>
+    <div id="bookingList" class="mt-4"><div id="listContent"></div></div>
 </div>
 
 <div id="main">
     <header>
         <div class="header-title-area">
-            <button id="prevMonthBtn" class="nav-btn" onclick="changeMonth(-1)" title="上個月">❮</button>
-            <div id="dateDisplay">載入中...</div>
-            <button id="nextMonthBtn" class="nav-btn" onclick="changeMonth(1)" title="下個月">❯</button>
+            <button id="prevMonthBtn" class="nav-btn" onclick="window.changeMonth(-1)">❮</button>
+            <div id="dateDisplay">正在連線雲端...</div>
+            <button id="nextMonthBtn" class="nav-btn" onclick="window.changeMonth(1)">❯</button>
         </div>
-        <div id="viewStatus" style="color:#666; font-size: 12px; background: #eee; padding: 4px 12px; border-radius: 20px;">
-            目前視圖：單日詳細
-        </div>
+        <div id="viewStatus" style="color:#666; font-size: 11px;">視圖：單日詳細</div>
     </header>
-    
-    <div id="grid-container">
-        <div class="grid-header">時間</div>
-        <div class="grid-header">活動一室</div><div class="grid-header">活動二室</div><div class="grid-header">活動三室</div>
-        <div class="grid-header">多功能室</div><div class="grid-header">青年室</div><div class="grid-header">大廳</div><div class="grid-header">圖書館</div>
-    </div>
-
-    <div id="month-container">
-        <div class="calendar-grid" id="calendarGrid"></div>
-    </div>
-
+    <div id="grid-container"></div>
+    <div id="month-container"><div class="calendar-grid" id="calendarGrid"></div></div>
     <div id="manage-container">
         <div class="manage-controls">
-            <div>
-                <input type="checkbox" id="selectAllManage" onclick="toggleSelectAllManage()">
-                <label for="selectAllManage" style="font-weight: bold; cursor: pointer;">全選本頁</label>
-                <input type="text" id="manageSearch" class="search-input" placeholder="搜尋活動名稱..." oninput="renderManageView()" style="margin-left: 15px;">
-            </div>
-            <button class="batch-del-btn" onclick="deleteSelectedBookings()">刪除選中項目</button>
+            <input type="text" id="manageSearch" placeholder="搜尋活動..." oninput="window.renderManageView()">
+            <button onclick="window.deleteSelectedBookings()" style="background:#dc3545; color:white; border:none; padding: 5px 15px; border-radius: 4px; cursor:pointer;">刪除選中項目</button>
         </div>
-        <table class="manage-table" id="manageTable">
+        <table class="manage-table">
             <thead>
                 <tr>
-                    <th width="40"></th>
+                    <th><input type="checkbox" onclick="window.toggleSelectAll(this)"></th>
                     <th>日期</th>
                     <th>場地</th>
-                    <th>活動名稱</th>
-                    <th>時間範圍</th>
-                    <th>部門/類別</th>
+                    <th>名稱</th>
+                    <th>時間</th>
                 </tr>
             </thead>
-            <tbody id="manageTableBody">
-                <!-- 由 JS 生成 -->
-            </tbody>
+            <tbody id="manageTableBody"></tbody>
         </table>
     </div>
 </div>
 
-<script>
-    const rooms = ["活動一室", "活動二室", "活動三室", "多功能室", "青年室", "大廳", "圖書館"];
-    let bookings = JSON.parse(localStorage.getItem('centerBookingsV4')) || []; 
-    let currentView = 'day';
+<!-- 自定義彈窗 -->
+<div id="custom-modal">
+    <div class="modal-content">
+        <h3 id="modal-title">提示</h3>
+        <p id="modal-message"></p>
+        <div class="modal-buttons">
+            <button id="modal-cancel" class="modal-btn" onclick="window.closeModal(false)">取消</button>
+            <button id="modal-confirm" class="modal-btn modal-btn-confirm" onclick="window.closeModal(true)">確定</button>
+        </div>
+    </div>
+</div>
 
-    // ✨ 2026 公眾假期表
-    const holidays2026 = {
-        "2026-01-01": "元旦",
-        "2026-02-16": "農曆除夕",
-        "2026-02-17": "農曆正月初一",
-        "2026-02-18": "農曆正月初二",
-        "2026-02-19": "農曆正月初三",
-        "2026-02-20": "農曆正月初四",
-        "2026-02-21": "農曆正月初五",
-        "2026-03-08": "婦女節",
-        "2026-04-03": "耶穌受難日",
-        "2026-04-04": "復活節前日",
-        "2026-04-05": "清明節",
-        "2026-05-01": "勞動節",
-        "2026-05-24": "佛誕節",
-        "2026-06-19": "端午節",
-        "2026-09-26": "中秋節翌日",
-        "2026-10-01": "國慶日",
-        "2026-10-02": "國慶日翌日",
-        "2026-10-18": "重陽節",
-        "2026-12-20": "特區成立紀念日",
-        "2026-12-22": "冬至",
-        "2026-12-24": "聖誕節前日",
-        "2026-12-25": "聖誕節"
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, setDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+    const firebaseConfig = JSON.parse(__firebase_config);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'venue-booking-2-0';
+
+    const rooms = ["活動一室", "活動二室", "活動三室", "多功能室", "青年室", "大廳", "圖書館"];
+    const holidays2026 = {"2026-01-01":"元旦","2026-02-16":"農曆除夕","2026-02-17":"農曆正月初一","2026-02-18":"農曆正月初二","2026-02-19":"農曆正月初三","2026-02-20":"農曆正月初四","2026-02-21":"農曆正月初五","2026-03-08":"婦女節","2026-04-03":"耶穌受難日","2026-04-04":"復活節前日","2026-04-05":"清明節","2026-05-01":"勞動節","2026-05-24":"佛誕節","2026-06-19":"端午節","2026-09-26":"中秋節翌日","2026-10-01":"國慶日","2026-10-02":"國慶日翌日","2026-10-18":"重陽節","2026-12-20":"特區成立紀念日","2026-12-22":"冬至","2026-12-24":"聖誕節前日","2026-12-25":"聖誕節"};
+
+    window.bookings = [];
+    window.currentView = 'day';
+    let modalCallback = null;
+
+    // 自定義彈窗邏輯
+    window.showModal = (title, message, isConfirm = true, callback) => {
+        document.getElementById('modal-title').innerText = title;
+        document.getElementById('modal-message').innerText = message;
+        document.getElementById('modal-cancel').style.display = isConfirm ? 'block' : 'none';
+        document.getElementById('custom-modal').style.display = 'flex';
+        modalCallback = callback;
     };
+
+    window.closeModal = (result) => {
+        document.getElementById('custom-modal').style.display = 'none';
+        if (modalCallback) modalCallback(result);
+    };
+
+    // 初始化與驗證流程
+    const initApp = async () => {
+        try {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+            
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    startListening();
+                }
+            });
+        } catch (error) {
+            console.error("驗證失敗:", error);
+            window.showModal("錯誤", "無法連接雲端伺服器，請重新整理頁面。", false);
+        }
+    };
+
+    function startListening() {
+        if (!auth.currentUser) return;
+        const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
+        onSnapshot(colRef, (snapshot) => {
+            window.bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            window.renderAll();
+        }, (error) => {
+            console.error("讀取失敗:", error);
+            if (error.code === 'permission-denied') {
+                window.showModal("權限錯誤", "您沒有權限讀取此資料庫路徑。", false);
+            }
+        });
+    }
 
     window.onload = () => {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('eventDate').value = today;
         initGrid();
-        renderBookings();
+        initApp();
     };
 
     function initGrid() {
         const container = document.getElementById('grid-container');
+        container.innerHTML = `<div class="grid-header">時間</div>${rooms.map(r => `<div class="grid-header">${r}</div>`).join('')}`;
         for (let h = 9; h <= 22; h++) {
             for (let m of ['00', '30']) {
                 const timeStr = `${h.toString().padStart(2, '0')}:${m}`;
-                const label = document.createElement('div'); label.className = 'time-label'; label.innerText = timeStr;
-                container.appendChild(label);
+                container.innerHTML += `<div class="time-label">${timeStr}</div>`;
                 for (let r = 0; r < 7; r++) {
-                    const cell = document.createElement('div'); cell.className = 'cell'; cell.id = `cell-${timeStr}-${rooms[r]}`;
-                    container.appendChild(cell);
+                    container.innerHTML += `<div class="cell" id="cell-${timeStr}-${rooms[r]}"></div>`;
                 }
             }
         }
     }
 
-    function toggleView(target) {
-        const grid = document.getElementById('grid-container');
-        const month = document.getElementById('month-container');
-        const manage = document.getElementById('manage-container');
-        const toggleBtn = document.getElementById('toggleBtn');
-        const manageBtn = document.getElementById('manageBtn');
-        const status = document.getElementById('viewStatus');
-        const navBtns = document.querySelectorAll('.nav-btn');
-
-        if (currentView === target) target = 'day';
-        currentView = target;
-
-        grid.style.display = 'none';
-        month.style.display = 'none';
-        manage.style.display = 'none';
-        navBtns.forEach(b => b.style.display = 'none');
-
-        if (target === 'month') {
-            month.style.display = 'block';
-            toggleBtn.innerText = '切換回單日時段視圖';
-            manageBtn.innerText = '批量移除管理';
-            status.innerText = '目前視圖：月度詳細看板';
-            navBtns.forEach(b => b.style.display = 'inline-block');
-            renderMonthView();
-        } else if (target === 'manage') {
-            manage.style.display = 'block';
-            toggleBtn.innerText = '顯示月度詳細看板';
-            manageBtn.innerText = '切換回單日時段視圖';
-            status.innerText = '目前視圖：批量移除管理';
-            renderManageView();
-        } else {
-            grid.style.display = 'grid';
-            toggleBtn.innerText = '顯示月度詳細看板';
-            manageBtn.innerText = '批量移除管理';
-            status.innerText = '目前視圖：單日詳細';
-            renderBookings();
-        }
-    }
-
-    function changeMonth(delta) {
-        const dateInput = document.getElementById('eventDate');
-        const current = new Date(dateInput.value);
-        current.setDate(1);
-        current.setMonth(current.getMonth() + delta);
-        const year = current.getFullYear();
-        const month = (current.getMonth() + 1).toString().padStart(2, '0');
-        dateInput.value = `${year}-${month}-01`;
-        if (currentView === 'month') renderMonthView();
-        else if (currentView === 'manage') renderManageView();
-        else renderBookings();
-    }
-
-    function toggleAllWeeks() {
-        const checkboxes = document.querySelectorAll('#weekSelector input[type="checkbox"]');
-        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-        checkboxes.forEach(cb => cb.checked = !allChecked);
-    }
-
-    // 核心預約邏輯更新：支援結束日期
-    function addBooking() {
+    window.handleAddBooking = async () => {
+        if (!auth.currentUser) return window.showModal("提示", "尚未連線至伺服器", false);
+        
         const name = document.getElementById('eventName').value;
         const startDateInput = document.getElementById('eventDate').value;
         const endDateInput = document.getElementById('eventEndDate').value;
@@ -359,242 +281,172 @@
         const cat = document.getElementById('catSelect').value;
         let repeatWeeks = parseInt(document.getElementById('repeatCount').value);
 
-        if(!name || !startDateInput) return alert("請輸入活動名稱與選擇日期");
-        if(start >= end) return alert("時間錯誤：結束時間必須晚於開始時間");
-
+        if(!name || !startDateInput) return window.showModal("提示", "請輸入活動名稱與選擇日期", false);
+        
         const startBaseDate = new Date(startDateInput);
-        let endLimitDate;
-
-        // 如果填寫了結束日期，則計算結束日期。否則按連開週數計算。
-        if (endDateInput) {
-            endLimitDate = new Date(endDateInput);
-            if (endLimitDate < startBaseDate) return alert("結束日期不能早於開始日期");
-            // 設定為無限，由日期判斷結束
-            repeatWeeks = 999; 
-        } else {
-            // 原有邏輯：計算 X 週後的日期作為界限
-            endLimitDate = new Date(startBaseDate);
-            endLimitDate.setDate(startBaseDate.getDate() + (repeatWeeks - 1) * 7);
-        }
+        let endLimitDate = endDateInput ? new Date(endDateInput) : new Date(startBaseDate.getTime() + (repeatWeeks-1)*7*86400000);
+        if (endDateInput) repeatWeeks = 999;
 
         const selectedWeeks = Array.from(document.querySelectorAll('#weekSelector input:checked')).map(cb => parseInt(cb.value));
+        const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
 
         for (let i = 0; i < repeatWeeks; i++) {
-            if (selectedWeeks.length > 0) {
-                let currentWeekHasBooking = false;
-                selectedWeeks.forEach(weekDay => {
-                    const targetDate = new Date(startBaseDate);
-                    // 計算該週的指定星期幾
-                    const offset = weekDay - startBaseDate.getDay();
-                    targetDate.setDate(startBaseDate.getDate() + offset + (i * 7));
+            const checkDate = new Date(startBaseDate.getTime() + i*7*86400000);
+            if (checkDate > endLimitDate) break;
 
-                    // 檢查是否在範圍內：不早於開始日期且不晚於結束界限
-                    if (targetDate >= startBaseDate && targetDate <= endLimitDate) {
-                        pushBooking(name, targetDate, room, start, end, cat);
-                        currentWeekHasBooking = true;
+            if (selectedWeeks.length > 0) {
+                selectedWeeks.forEach(async (wd) => {
+                    const target = new Date(startBaseDate);
+                    target.setDate(startBaseDate.getDate() - startBaseDate.getDay() + wd + (i*7));
+                    if (target >= startBaseDate && target <= endLimitDate) {
+                        await addDoc(colRef, { name, date: target.toISOString().split('T')[0], room, start, end, cat });
                     }
                 });
-                // 如果這一整週都沒有符合日期的項目，且使用了結束日期模式，則停止循環
-                if (endDateInput && !currentWeekHasBooking && new Date(startBaseDate.getTime() + (i * 7 * 86400000)) > endLimitDate) break;
             } else {
-                // 原有單週重複邏輯
-                const targetDate = new Date(startBaseDate);
-                targetDate.setDate(targetDate.getDate() + (i * 7));
-                if (targetDate <= endLimitDate) {
-                    pushBooking(name, targetDate, room, start, end, cat);
-                } else {
-                    break;
+                const target = new Date(startBaseDate.getTime() + i*7*86400000);
+                await addDoc(colRef, { name, date: target.toISOString().split('T')[0], room, start, end, cat });
+            }
+            if (i > 100) break;
+        }
+        document.getElementById('eventName').value = "";
+    };
+
+    window.handleDelete = (id) => {
+        if (!auth.currentUser) return;
+        window.showModal("確認", "確定要取消此預約嗎？", true, async (confirmed) => {
+            if (confirmed) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bookings', id));
+            }
+        });
+    };
+
+    window.deleteSelectedBookings = () => {
+        const checkedBoxes = document.querySelectorAll('.manage-check:checked');
+        if (checkedBoxes.length === 0) return window.showModal("提示", "請先勾選要刪除的項目", false);
+        
+        window.showModal("確認", `確定要刪除選中的 ${checkedBoxes.length} 項預約嗎？`, true, async (confirmed) => {
+            if (confirmed) {
+                for (const cb of checkedBoxes) {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bookings', cb.value));
                 }
             }
-            // 防止無限循環安全機制
-            if (i > 104) break; 
+        });
+    };
+
+    window.renderAll = () => {
+        if (window.currentView === 'day') renderDay();
+        else if (window.currentView === 'month') renderMonth();
+        else if (window.currentView === 'manage') renderManageView();
+    };
+
+    function renderDay() {
+        document.querySelectorAll('.event-block').forEach(el => el.remove());
+        const list = document.getElementById('listContent');
+        list.innerHTML = "";
+        const viewDate = document.getElementById('eventDate').value;
+        const holiday = holidays2026[viewDate];
+        document.getElementById('dateDisplay').innerHTML = viewDate + (holiday ? ` <span style="color:red; font-size:14px;">(${holiday})</span>` : "");
+
+        window.bookings.filter(b => b.date === viewDate).forEach(b => {
+            const startH = parseInt(b.start.split(':')[0]); const startM = parseInt(b.start.split(':')[1]);
+            const endH = parseInt(b.end.split(':')[0]); const endM = parseInt(b.end.split(':')[1]);
+            const top = ((startH-9)*2 + (startM >= 30 ? 1 : 0))*30;
+            const height = (((endH*60+endM)-(startH*60+startM))/30)*30;
+            
+            const cell = document.getElementById(`cell-09:00-${b.room}`);
+            if (cell) {
+                const block = document.createElement('div');
+                block.className = `event-block cat-${b.cat}`;
+                block.style.top = top + "px"; block.style.height = (height-4) + "px";
+                block.innerHTML = `<span class="del-x" onclick="window.handleDelete('${b.id}')">×</span><b>${b.name}</b><br><small>${b.start}-${b.end}</small>`;
+                cell.appendChild(block);
+            }
+            list.innerHTML += `<div style="font-size:11px; margin-bottom:5px; border-bottom: 1px solid #eee; padding-bottom: 3px;"><b>[${b.room}]</b> ${b.name} <button onclick="window.handleDelete('${b.id}')" style="padding:1px 4px; font-size:9px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">刪除</button></div>`;
+        });
+    }
+
+    function renderMonth() {
+        const grid = document.getElementById('calendarGrid');
+        grid.innerHTML = ['日','一','二','三','四','五','六'].map(d => `<div class="calendar-day-header">${d}</div>`).join('');
+        const dInput = new Date(document.getElementById('eventDate').value);
+        const y = dInput.getFullYear(), m = dInput.getMonth();
+        document.getElementById('dateDisplay').innerText = `${y}年 ${m+1}月`;
+
+        const first = new Date(y, m, 1).getDay(), days = new Date(y, m+1, 0).getDate();
+        for(let i=0; i<first; i++) grid.innerHTML += `<div class="calendar-day" style="opacity:0.3"></div>`;
+        for(let d=1; d<=days; d++) {
+            const ds = `${y}-${(m+1).toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
+            const hol = holidays2026[ds];
+            const cell = document.createElement('div');
+            cell.className = `calendar-day ${hol?'is-holiday':''}`;
+            cell.innerHTML = `<div class="day-number-container"><span class="day-number" onclick="window.goToDate('${ds}')">${d}</span>${hol?`<span class="holiday-label">${hol}</span>`:''}</div>`;
+            window.bookings.filter(b => b.date === ds).forEach(e => {
+                cell.innerHTML += `<div class="day-event-detail cat-${e.cat}"><span class="del-mini" onclick="window.handleDelete('${e.id}')">×</span>[${e.room.replace('活動','')}] ${e.name}</div>`;
+            });
+            grid.appendChild(cell);
         }
-        
-        saveAndRender();
-        document.getElementById('eventName').value = "";
-        document.getElementById('eventEndDate').value = "";
     }
 
-    function pushBooking(name, dateObj, room, start, end, cat) {
-        const dateStr = dateObj.toISOString().split('T')[0];
-        const uniqueId = "ID-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);
-        bookings.push({ id: uniqueId, name, date: dateStr, room, start, end, cat });
-    }
-
-    function deleteBooking(id) {
-        if(!id) return;
-        if(confirm("確定要取消這項預約嗎？")) {
-            bookings = bookings.filter(b => b.id && String(b.id) !== String(id));
-            saveAndRender();
-        }
-    }
-
-    function deleteSelectedBookings() {
-        const checkedBoxes = document.querySelectorAll('.manage-check:checked');
-        if (checkedBoxes.length === 0) return alert("請先勾選要刪除的項目");
-        if (confirm(`確定要刪除選中的 ${checkedBoxes.length} 項預約嗎？`)) {
-            const idsToDelete = Array.from(checkedBoxes).map(cb => cb.value);
-            bookings = bookings.filter(b => !idsToDelete.includes(String(b.id)));
-            saveAndRender();
-        }
-    }
-
-    function toggleSelectAllManage() {
-        const isChecked = document.getElementById('selectAllManage').checked;
-        document.querySelectorAll('.manage-check').forEach(cb => cb.checked = isChecked);
-    }
-
-    function saveAndRender() {
-        localStorage.setItem('centerBookingsV4', JSON.stringify(bookings));
-        if (currentView === 'day') renderBookings();
-        else if (currentView === 'month') renderMonthView();
-        else if (currentView === 'manage') renderManageView();
-    }
-
-    function renderManageView() {
+    window.renderManageView = () => {
         const body = document.getElementById('manageTableBody');
         const searchTerm = document.getElementById('manageSearch').value.toLowerCase();
         body.innerHTML = "";
-        document.getElementById('selectAllManage').checked = false;
-        const sortedBookings = [...bookings].sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start));
-        sortedBookings.forEach(b => {
+        const sorted = [...window.bookings].sort((a,b) => a.date.localeCompare(b.date));
+        sorted.forEach(b => {
             if (b.name.toLowerCase().includes(searchTerm)) {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><input type="checkbox" class="manage-check" value="${b.id}"></td>
-                    <td>${b.date}${holidays2026[b.date] ? ' <span style="color:red;font-size:10px;">('+holidays2026[b.date]+')</span>' : ''}</td>
-                    <td>${b.room}</td>
-                    <td><span class="cat-${b.cat}" style="padding: 2px 5px; border-radius: 3px; border-left: 3px solid rgba(0,0,0,0.2);">${b.name}</span></td>
-                    <td>${b.start} ~ ${b.end}</td>
-                    <td>${b.cat}</td>
-                `;
-                body.appendChild(tr);
-            }
-        });
-        if (body.innerHTML === "") body.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#888; padding: 20px;">找不到相關預約資料</td></tr>`;
-    }
-
-    function renderBookings() {
-        document.querySelectorAll('.event-block').forEach(el => el.remove());
-        const listContent = document.getElementById('listContent');
-        listContent.innerHTML = "";
-        const viewDate = document.getElementById('eventDate').value;
-        const holidayName = holidays2026[viewDate];
-        document.getElementById('dateDisplay').innerHTML = viewDate + " 場地租用詳情" + (holidayName ? ` <span style="color:red; font-size:14px;">(${holidayName})</span>` : "");
-
-        bookings.forEach(b => {
-            if (b.date === viewDate) {
-                const startH = parseInt(b.start.split(':')[0]); const startM = parseInt(b.start.split(':')[1]);
-                const endH = parseInt(b.end.split(':')[0]); const endM = parseInt(b.end.split(':')[1]);
-                const topOffset = ((startH - 9) * 2 + (startM >= 30 ? 1 : 0)) * 30;
-                const height = (((endH * 60 + endM) - (startH * 60 + startM)) / 30) * 30;
-                const roomIndex = rooms.indexOf(b.room);
-                const targetCell = document.getElementById(`cell-09:00-${rooms[roomIndex]}`);
-                const block = document.createElement('div');
-                block.className = `event-block cat-${b.cat}`;
-                block.style.top = topOffset + "px"; block.style.height = (height - 4) + "px";
-                block.innerHTML = `<span class="del-x" title="刪除" onclick="event.stopPropagation(); deleteBooking('${b.id}')">×</span>
-                                   <div style="font-weight:bold">${b.name}</div>
-                                   <div style="font-size:9px">${b.start}-${b.end}</div>`;
-                targetCell.appendChild(block);
-
-                const item = document.createElement('div');
-                item.className = 'list-item';
-                item.innerHTML = `<div><b style="color:#007bff">[${b.room}]</b> ${b.name}</div>
-                                  <button class="del-btn" onclick="deleteBooking('${b.id}')">取消</button>`;
-                listContent.appendChild(item);
+                body.innerHTML += `<tr><td><input type="checkbox" class="manage-check" value="${b.id}"></td><td>${b.date}</td><td>${b.room}</td><td><span class="cat-${b.cat}" style="padding:2px 5px; border-radius:3px;">${b.name}</span></td><td>${b.start}-${b.end}</td></tr>`;
             }
         });
     }
 
-    function renderMonthView() {
-        const grid = document.getElementById('calendarGrid');
-        grid.innerHTML = '';
-        const selectedDate = new Date(document.getElementById('eventDate').value);
-        const year = selectedDate.getFullYear();
-        const month = selectedDate.getMonth();
-        document.getElementById('dateDisplay').innerText = `${year}年 ${month + 1}月 場地看板`;
+    window.goToDate = (ds) => { document.getElementById('eventDate').value = ds; window.toggleView('day'); };
 
-        ['日', '一', '二', '三', '四', '五', '六'].forEach(d => {
-            const h = document.createElement('div'); h.className = 'calendar-day-header'; h.innerText = d; grid.appendChild(h);
-        });
+    window.toggleView = (t) => {
+        window.currentView = t;
+        document.getElementById('grid-container').style.display = t === 'day' ? 'grid' : 'none';
+        document.getElementById('month-container').style.display = t === 'month' ? 'block' : 'none';
+        document.getElementById('manage-container').style.display = t === 'manage' ? 'block' : 'none';
+        document.querySelectorAll('.nav-btn').forEach(b => b.style.display = t === 'month' ? 'inline-block' : 'none');
+        window.renderAll();
+    };
 
-        const firstDay = new Date(year, month, 1).getDay();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
+    window.changeMonth = (delta) => {
+        const d = new Date(document.getElementById('eventDate').value);
+        d.setDate(1); d.setMonth(d.getMonth()+delta);
+        document.getElementById('eventDate').value = d.toISOString().split('T')[0];
+        window.renderAll();
+    };
 
-        for (let i = 0; i < firstDay; i++) {
-            const empty = document.createElement('div'); empty.className = 'calendar-day other-month'; grid.appendChild(empty);
+    window.toggleAllWeeks = () => {
+        const cbs = document.querySelectorAll('#weekSelector input[type="checkbox"]');
+        const all = Array.from(cbs).every(c => c.checked);
+        cbs.forEach(c => c.checked = !all);
+    };
+
+    window.toggleSelectAll = (el) => {
+        document.querySelectorAll('.manage-check').forEach(c => c.checked = el.checked);
+    };
+
+    window.exportToExcelCalendar = () => {
+        if (typeof XLSX === 'undefined') return window.showModal("提示", "組件加載中，請稍候...", false);
+        const dStr = document.getElementById('eventDate').value;
+        const y = parseInt(dStr.substring(0,4)), m = parseInt(dStr.substring(5,7))-1;
+        const days = new Date(y, m+1, 0).getDate(), first = new Date(y, m, 1).getDay();
+        let rows = [[`${y}年 ${m+1}月 中心場地租用日曆`], ["週日","週一","週二","週三","週四","週五","週六"]];
+        let curr = Array(7).fill("");
+        for(let i=first, d=1; d<=days; d++, i=(i+1)%7) {
+            const ds = `${y}-${(m+1).toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
+            const hol = holidays2026[ds];
+            const eb = window.bookings.filter(b => b.date === ds).sort((a,b)=>a.start.localeCompare(b.start));
+            curr[i] = `【${d}日】${hol?'('+hol+')':''}\n` + eb.map(e => `${e.start} [${e.room}] ${e.name}`).join('\n');
+            if (i === 6 || d === days) { rows.push(curr); curr = Array(7).fill(""); }
         }
-
-        for (let d = 1; d <= daysInMonth; d++) {
-            const dayBox = document.createElement('div');
-            dayBox.className = 'calendar-day';
-            const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
-            const holidayName = holidays2026[dateStr];
-            
-            if (dateStr === new Date().toISOString().split('T')[0]) dayBox.classList.add('today');
-            if (holidayName) dayBox.classList.add('is-holiday');
-
-            dayBox.innerHTML = `
-                <div class="day-number-container">
-                    <span class="day-number" onclick="document.getElementById('eventDate').value='${dateStr}'; toggleView('day');">${d}</span>
-                    ${holidayName ? `<span class="holiday-label">${holidayName}</span>` : ''}
-                </div>
-            `;
-            
-            const dayEvents = bookings.filter(b => b.date === dateStr).sort((a,b) => a.start.localeCompare(b.start));
-            dayEvents.forEach(e => {
-                const brief = document.createElement('div');
-                brief.className = `day-event-detail cat-${e.cat}`;
-                brief.innerHTML = `
-                    <span class="del-mini" title="刪除預約" onclick="event.stopPropagation(); deleteBooking('${e.id}')">×</span>
-                    <b>[${e.room.replace('活動','')}]</b> ${e.start}<br>${e.name}
-                `;
-                dayBox.appendChild(brief);
-            });
-            grid.appendChild(dayBox);
-        }
-    }
-
-    function exportToExcelCalendar() {
-        if (typeof XLSX === 'undefined') return alert("組件加載中，請稍候...");
-        const selectedDate = document.getElementById('eventDate').value;
-        const year = parseInt(selectedDate.substring(0, 4));
-        const month = parseInt(selectedDate.substring(5, 7)) - 1;
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const firstDay = new Date(year, month, 1).getDay();
-        let rows = [[`${year}年 ${month + 1}月 中心場地租用日曆`], ["週日", "週一", "週二", "週三", "週四", "週五", "週六"]];
-        let currentRow = Array(7).fill("");
-        let dayCount = 1;
-        for (let i = firstDay; i < 7 && dayCount <= daysInMonth; i++) {
-            const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${dayCount.toString().padStart(2, '0')}`;
-            const holiday = holidays2026[dateStr];
-            const dayEvents = bookings.filter(b => b.date === dateStr).sort((a,b) => a.start.localeCompare(b.start));
-            let cellContent = `【${dayCount}日】${holiday ? '('+holiday+')' : ''}\n`;
-            dayEvents.forEach(e => { cellContent += `${e.start} [${e.room}] ${e.name}\n`; });
-            currentRow[i] = cellContent;
-            dayCount++;
-        }
-        rows.push(currentRow);
-        while (dayCount <= daysInMonth) {
-            currentRow = Array(7).fill("");
-            for (let i = 0; i < 7 && dayCount <= daysInMonth; i++) {
-                const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${dayCount.toString().padStart(2, '0')}`;
-                const holiday = holidays2026[dateStr];
-                const dayEvents = bookings.filter(b => b.date === dateStr).sort((a,b) => a.start.localeCompare(b.start));
-                let cellContent = `【${dayCount}日】${holiday ? '('+holiday+')' : ''}\n`;
-                dayEvents.forEach(e => { cellContent += `${e.start} [${e.room}] ${e.name}\n`; });
-                currentRow[i] = cellContent;
-                dayCount++;
-            }
-            rows.push(currentRow);
-        }
-        const worksheet = XLSX.utils.aoa_to_sheet(rows);
-        worksheet['!cols'] = Array(7).fill({ wch: 30 });
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "日曆表");
-        XLSX.writeFile(workbook, `場地租用日曆_${year}_${month+1}.xlsx`);
-    }
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = Array(7).fill({ wch: 30 });
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "日曆表");
+        XLSX.writeFile(wb, `場地租用日曆_${y}_${m+1}.xlsx`);
+    };
 </script>
 </body>
 </html>
